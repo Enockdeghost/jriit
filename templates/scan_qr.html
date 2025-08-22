@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}Scan QR Code{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <!-- QR Scanner Section -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Scan Attendance QR Code</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div id="qr-scanner-container" class="mb-3">
+                        <video id="qr-video" width="100%" style="border: 1px solid #ddd;"></video>
+                    </div>
+                    <p class="text-muted">Point your camera at the QR code displayed by your instructor</p>
+                    
+                    <!-- Hidden form for submitting QR data -->
+                    <form id="qr-form" method="POST" action="{{ url_for('scan_qr') }}">
+                        <input type="hidden" name="qr_data" id="qr-data">
+                        <input type="hidden" name="latitude" id="latitude">
+                        <input type="hidden" name="longitude" id="longitude">
+                    </form>
+                    
+                    <div id="scanner-feedback" class="alert alert-info d-none"></div>
+                    
+                    <button id="start-scanner" class="btn btn-primary">
+                        <i class="bi bi-camera-fill"></i> Start Scanner
+                    </button>
+                    <a href="{{ url_for('student_lessons') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Lessons
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Manual Entry Option -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">Alternative Options</h5>
+                </div>
+                <div class="card-body text-center">
+                    <p>Having trouble scanning? Try:</p>
+                    <a href="{{ url_for('enter_pin') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-key-fill"></i> Enter PIN Instead
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Include QR Scanner JS -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const video = document.getElementById('qr-video');
+    const qrDataInput = document.getElementById('qr-data');
+    const qrForm = document.getElementById('qr-form');
+    const feedback = document.getElementById('scanner-feedback');
+    const startBtn = document.getElementById('start-scanner');
+    const latInput = document.getElementById('latitude');
+    const longInput = document.getElementById('longitude');
+    
+    let scannerActive = false;
+    let stream = null;
+    
+    // Get location if available
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(position => {
+            latInput.value = position.coords.latitude;
+            longInput.value = position.coords.longitude;
+        }, error => {
+            console.log('Geolocation error:', error);
+        });
+    }
+    
+    // Start/stop scanner
+    startBtn.addEventListener('click', async function() {
+        if (scannerActive) {
+            stopScanner();
+            return;
+        }
+        
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            video.srcObject = stream;
+            video.play();
+            scannerActive = true;
+            startBtn.innerHTML = '<i class="bi bi-stop-fill"></i> Stop Scanner';
+            feedback.classList.add('d-none');
+            
+            // Start QR detection
+            detectQR();
+        } catch (err) {
+            console.error("Error accessing camera:", err);
+            feedback.textContent = "Could not access camera. Please ensure you've granted camera permissions.";
+            feedback.classList.remove('d-none');
+            feedback.classList.remove('alert-info');
+            feedback.classList.add('alert-danger');
+        }
+    });
+    
+    function stopScanner() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+        scannerActive = false;
+        startBtn.innerHTML = '<i class="bi bi-camera-fill"></i> Start Scanner';
+    }
+    
+    function detectQR() {
+        if (!scannerActive) return;
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext('2d');
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        
+        if (code) {
+            feedback.textContent = "QR Code detected! Processing...";
+            feedback.classList.remove('d-none');
+            feedback.classList.remove('alert-danger');
+            feedback.classList.add('alert-success');
+            
+            qrDataInput.value = code.data;
+            setTimeout(() => {
+                qrForm.submit();
+            }, 500);
+            return;
+        }
+        
+        requestAnimationFrame(detectQR);
+    }
+    
+    // Clean up on page leave
+    window.addEventListener('beforeunload', stopScanner);
+});
+</script>
+{% endblock %}

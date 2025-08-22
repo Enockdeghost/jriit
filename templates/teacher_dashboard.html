@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+   
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-journal me-1"></i> Your Subjects
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if subjects %}
+                    <div class="row">
+                        {% for subject in subjects %}
+                     
+                        {% set colors = ['primary', 'success', 'info', 'warning'] %}
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100 border-left-{{ colors[loop.index0 % colors|length] }} shadow">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ subject.subject_name }}</h5>
+                                    <h6 class="card-subtitle mb-2 text-muted">{{ subject.subject_code }}</h6>
+                                    <p class="card-text">
+                                        <span class="badge bg-secondary">{{ subject.course }}</span>
+                                        <span class="badge bg-info">Sem {{ subject.semester }}</span>
+                                        <span class="badge bg-primary">{{ subject.credits }} Credits</span>
+                                    </p>
+                                </div>
+                                <div class="card-footer bg-transparent">
+                                    <a href="{{ url_for('manage_results', subject_id=subject.id) }}" 
+                                       class="btn btn-sm btn-primary">
+                                        <i class="bi bi-clipboard-data me-1"></i> Manage Results
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                  
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

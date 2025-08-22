@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">User Management</h1>
+        <a href="{{ url_for('create_user') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-2"></i>Create User
+        </a>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">System Users</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="usersTable" width="100%" cellspacing="0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Full Name</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Created On</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.id }}</td>
+                            <td>{{ user.username }}</td>
+                            <td>
+                                {% if user.teacher %}
+                                    {{ user.teacher.full_name }}
+                                {% elif user.academic %}
+                                    {{ user.academic.full_name }}
+                                {% else %}
+                                    System Admin
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-{{ 'primary' if user.role == 'admin' else 'success' if user.role == 'teacher' else 'info' }}">
+                                    {{ user.role|title }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if user.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td class="text-center">
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('toggle_user', user_id=user.id) }}" 
+                                       class="btn btn-sm btn-{{ 'danger' if user.is_active else 'success' }}"
+                                       title="{{ 'Deactivate' if user.is_active else 'Activate' }}">
+                                        <i class="bi bi-{{ 'x-circle' if user.is_active else 'check-circle' }}"></i>
+                                    </a>
+                                    
+                                    {% if user.role == 'student' and user.student %}
+                                        {% if user.student.status == 'pending' %}
+                                        <a href="{{ url_for('approve_student', student_id=user.student.id) }}" 
+                                           class="btn btn-sm btn-success"
+                                           title="Approve">
+                                            <i class="bi bi-check-lg"></i>
+                                        </a>
+                                        <a href="{{ url_for('reject_student', student_id=user.student.id) }}" 
+                                           class="btn btn-sm btn-danger"
+                                           title="Reject">
+                                            <i class="bi bi-x-lg"></i>
+                                        </a>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

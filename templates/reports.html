@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+
+{% block title %}Reports Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Academic Reports</h1>
+        <div class="text-muted">Generated: {{ now.strftime('%Y-%m-%d %H:%M') }}</div>
+    </div>
+    
+  
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="h5 mb-0">Course Performance</h2>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-column h-100">
+                        <p class="text-muted">Analyze student performance across all courses with detailed metrics and grade distributions.</p>
+                        <div class="mt-auto">
+                            <a href="{{ url_for('course_performance_report') }}" class="btn btn-outline-primary w-100">
+                                View Report <i class="fas fa-arrow-right ms-2"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow border-success">
+                <div class="card-header bg-success text-white">
+                    <h2 class="h5 mb-0">Teacher Performance</h2>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-column h-100">
+                        <p class="text-muted">Evaluate teaching effectiveness by analyzing subject results and student performance metrics.</p>
+                        <div class="mt-auto">
+                            <a href="{{ url_for('teacher_performance_report') }}" class="btn btn-outline-success w-100">
+                                View Report <i class="fas fa-arrow-right ms-2"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-light">
+            <h2 class="h5 mb-0">System Overview</h2>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3 mb-3 mb-md-0">
+                    <div class="card border-0 h-100">
+                        <div class="card-body text-center">
+                            <div class="text-primary fs-1 fw-bold">{{ total_courses }}</div>
+                            <div class="text-muted">Courses</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3 mb-md-0">
+                    <div class="card border-0 h-100">
+                        <div class="card-body text-center">
+                            <div class="text-primary fs-1 fw-bold">{{ total_students }}</div>
+                            <div class="text-muted">Students</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3 mb-md-0">
+                    <div class="card border-0 h-100">
+                        <div class="card-body text-center">
+                            <div class="text-primary fs-1 fw-bold">{{ total_teachers }}</div>
+                            <div class="text-muted">Teachers</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 h-100">
+                        <div class="card-body text-center">
+                            <div class="text-primary fs-1 fw-bold">{{ total_results }}</div>
+                            <div class="text-muted">Results</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="h5 mb-0">Recent System Activities</h2>
+                <a href="#" class="btn btn-sm btn-outline-secondary">View All</a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="list-group">
+                {% for log in recent_activities %}
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <strong>{{ log.action }}</strong>
+                            <div class="text-muted small">{{ log.details }}</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="small text-muted">{{ log.timestamp.strftime('%Y-%m-%d %H:%M') }}</div>
+                            <div class="small">{{ log.user.username }}</div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

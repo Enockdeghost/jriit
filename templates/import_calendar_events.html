@@ -1,0 +1,99 @@
+{% extends "base_cal.html" %}
+
+{% block title %}Import Calendar Events{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">Import Calendar Events</h2>
+    <a href="{{ url_for('calendar') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Calendar
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('import_calendar_events') }}" enctype="multipart/form-data">
+            <div class="mb-4">
+                <label for="file" class="form-label">Select CSV File *</label>
+                <input class="form-control" type="file" id="file" name="file" accept=".csv" required>
+                <div class="form-text">Only CSV files are supported for import</div>
+            </div>
+            
+            <div class="d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-upload me-2"></i> Import Events
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Import Instructions</h5>
+    </div>
+    <div class="card-body">
+        <p>To import events, prepare a CSV file with the following columns:</p>
+        <table class="table table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>Column</th>
+                    <th>Required</th>
+                    <th>Description</th>
+                    <th>Example</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>title</td>
+                    <td>Yes</td>
+                    <td>Event title</td>
+                    <td>Final Exams</td>
+                </tr>
+                <tr>
+                    <td>description</td>
+                    <td>No</td>
+                    <td>Event description</td>
+                    <td>All students must attend</td>
+                </tr>
+                <tr>
+                    <td>start_date</td>
+                    <td>Yes</td>
+                    <td>Start date (YYYY-MM-DD HH:MM)</td>
+                    <td>2023-12-15 09:00</td>
+                </tr>
+                <tr>
+                    <td>end_date</td>
+                    <td>Yes</td>
+                    <td>End date (YYYY-MM-DD HH:MM)</td>
+                    <td>2023-12-15 12:00</td>
+                </tr>
+                <tr>
+                    <td>event_type</td>
+                    <td>No</td>
+                    <td>Event type (lecture, exam, holiday, etc.)</td>
+                    <td>exam</td>
+                </tr>
+                <tr>
+                    <td>target_type</td>
+                    <td>No</td>
+                    <td>Target audience (all, department, course, year)</td>
+                    <td>course</td>
+                </tr>
+                <tr>
+                    <td>target_value</td>
+                    <td>No</td>
+                    <td>Specific target value</td>
+                    <td>Computer Science 101</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <div class="mt-3">
+            <a href="#" class="btn btn-outline-secondary">
+                <i class="bi bi-download me-2"></i> Download Template
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

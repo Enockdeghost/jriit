@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+
+{% block title %}Teacher Performance Report{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Teacher Performance Report</h1>
+        <div>
+            <button class="btn btn-primary" onclick="window.print()">
+                <i class="fas fa-print me-1"></i> Print Report
+            </button>
+            <a href="{{ url_for('reports') }}" class="btn btn-outline-secondary ms-2">
+                <i class="fas fa-arrow-left me-1"></i> Back to Reports
+            </a>
+        </div>
+    </div>
+
+   
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-light">
+            <h2 class="h5 mb-0">Performance Overview</h2>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Teacher</th>
+                            <th class="text-center">Department</th>
+                            <th class="text-center">Subjects Taught</th>
+                            <th class="text-center">Results Submitted</th>
+                            <th class="text-center">Avg. Marks</th>
+                            <th class="text-center">Avg. GPA</th>
+                            <th class="text-center">Pass Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for teacher_id, stats in teacher_stats.items() %}
+                        {% set teacher = stats.teacher %}
+                        <tr>
+                            <td>{{ teacher.full_name }}</td>
+                            <td class="text-center">{{ teacher.department }}</td>
+                            <td class="text-center">{{ stats.subjects_taught }}</td>
+                            <td class="text-center">{{ stats.total_results }}</td>
+                            <td class="text-center">{{ stats.average_marks }}</td>
+                            <td class="text-center">
+                                {% set avg_gpa = (stats.average_marks / 25) | round(2) %}
+                                {{ avg_gpa if avg_gpa <= 4.0 else 4.0 }}
+                            </td>
+                            <td class="text-center">
+                                {% if stats.average_marks > 50 %}
+                                <span class="badge bg-success">High</span>
+                                {% elif stats.average_marks > 40 %}
+                                <span class="badge bg-warning">Medium</span>
+                                {% else %}
+                                <span class="badge bg-danger">Low</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                       
+                        <tr class="table-secondary fw-bold">
+                            <td>Total/Average</td>
+                            <td class="text-center">{{ teacher_stats|length }} departments</td>
+                            <td class="text-center">{{ teacher_stats.values()|sum(attribute='subjects_taught') }}</td>
+                            <td class="text-center">{{ teacher_stats.values()|sum(attribute='total_results') }}</td>
+                            <td class="text-center">
+                                
+                                {% set total_results = teacher_stats.values()|sum(attribute='total_results') %}
+                                {% set weighted_sum = 0 %}
+                                {% for stats in teacher_stats.values() %}
+                                    {% set weighted_sum = weighted_sum + (stats.total_results * stats.average_marks) %}
+                                {% endfor %}
+                                {{ (weighted_sum / total_results)|round(2) if total_results > 0 else 0 }}
+                            </td>
+                            <td class="text-center">
+                                {% if total_results > 0 %}
+                                    {% set avg_marks = weighted_sum / total_results %}
+                                    {% set avg_gpa = (avg_marks / 25) | round(2) %}
+                                    {{ avg_gpa if avg_gpa <= 4.0 else 4.0 }}
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+  
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-light">
+                    <h2 class="h5 mb-0">Average Marks by Teacher</h2>
+                </div>
+                <div class="card-body">
+                    <div style="height: 300px;">
+                        <canvas id="marksChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-light">
+                    <h2 class="h5 mb-0">Results Distribution</h2>
+                </div>
+                <div class="card-body">
+                    <div style="height: 300px;">
+                        <canvas id="resultsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+ 
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h2 class="h5 mb-0">Teacher Details</h2>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for teacher_id, stats in teacher_stats.items() %}
+                {% set teacher = stats.teacher %}
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 border-0 shadow">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h3 class="h6 mb-0">{{ teacher.full_name }}</h3>
+                                <span class="badge bg-primary">{{ teacher.department }}</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <div class="text-muted small">Subjects Taught</div>
+                                    <div class="fs-4 fw-bold">{{ stats.subjects_taught }}</div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="text-muted small">Results Submitted</div>
+                                    <div class="fs-4 fw-bold">{{ stats.total_results }}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <div>Average Marks:</div>
+                                    <div class="fw-bold">{{ stats.average_marks }}</div>
+                                </div>
+                                <div class="progress" style="height: 10px;">
+                                    <div class="progress-bar" role="progressbar" 
+                                         style="width: {{ stats.average_marks }}%; height: 10px;" 
+                                         aria-valuenow="{{ stats.average_marks }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <div>Estimated Pass Rate:</div>
+                                    <div class="fw-bold">
+                                        {% if stats.average_marks > 50 %}
+                                            High (70-100%)
+                                        {% elif stats.average_marks > 40 %}
+                                            Medium (50-70%)
+                                        {% else %}
+                                            Low (&lt;50%)
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="progress" style="height: 10px;">
+                                    <div class="progress-bar 
+                                        {% if stats.average_marks > 50 %}bg-success
+                                        {% elif stats.average_marks > 40 %}bg-warning
+                                        {% else %}bg-danger
+                                        {% endif %}" 
+                                        role="progressbar" 
+                                        style="width: {{ stats.average_marks }}%; height: 10px;" 
+                                        aria-valuenow="{{ stats.average_marks }}" 
+                                        aria-valuemin="0" 
+                                        aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <a href="#" class="btn btn-sm btn-outline-primary w-100">
+                                    View Detailed Report
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Initialize average marks chart
+const marksCtx = document.getElementById('marksChart').getContext('2d');
+const marksChart = new Chart(marksCtx, {
+    type: 'bar',
+    data: {
+        labels: [{% for stats in teacher_stats.values() %}'{{ stats.teacher.full_name }}'{% if not loop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+            label: 'Average Marks',
+            data: [{% for stats in teacher_stats.values() %}{{ stats.average_marks }}{% if not loop.last %},{% endif %}{% endfor %}],
+            backgroundColor: '#2196F3',
+            borderColor: '#0d47a1',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 100,
+                title: {
+                    display: true,
+                    text: 'Average Marks'
+                }
+            }
+        }
+    }
+});
+const resultsCtx = document.getElementById('resultsChart').getContext('2d');
+const resultsChart = new Chart(resultsCtx, {
+    type: 'doughnut',
+    data: {
+        labels: [{% for stats in teacher_stats.values() %}'{{ stats.teacher.full_name }}'{% if not loop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+            label: 'Results Submitted',
+            data: [{% for stats in teacher_stats.values() %}{{ stats.total_results }}{% if not loop.last %},{% endif %}{% endfor %}],
+            backgroundColor: [
+                '#4CAF50', '#2196F3', '#FFC107', '#FF5722', '#9C27B0', '#795548',
+                '#E91E63', '#00BCD4', '#8BC34A', '#FF9800', '#607D8B', '#3F51B5'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'right'
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

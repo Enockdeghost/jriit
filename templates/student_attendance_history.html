@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance History{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>My Attendance History</h1>
+        <a href="{{ url_for('student_lessons') }}" class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left"></i> Back to Lessons
+        </a>
+    </div>
+    
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Attendance Rate</h5>
+                    <h2 class="card-text">{{ "%.1f"|format(attendance_rate) }}%</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Present</h5>
+                    <h2 class="card-text">{{ present_count }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-warning mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Late</h5>
+                    <h2 class="card-text">{{ late_count }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Attendance Records Table -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Detailed Attendance Records</h5>
+        </div>
+        <div class="card-body">
+            {% if not attendance_records %}
+                <div class="alert alert-info">No attendance records found.</div>
+            {% else %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Subject</th>
+                                <th>Lesson</th>
+                                <th>Status</th>
+                                <th>Method</th>
+                                <th>Time</th>
+                                <th>Location</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record, lesson, subject in attendance_records %}
+                            <tr>
+                                <td>{{ lesson.date_time.strftime('%d %b %Y') }}</td>
+                                <td>{{ subject.name }}</td>
+                                <td>{{ lesson.title }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if record.status == 'present' else 'warning' }}">
+                                        {{ record.status|title }}
+                                    </span>
+                                </td>
+                                <td>{{ record.scan_method|upper }}</td>
+                                <td>{{ lesson.date_time.strftime('%H:%M') }}</td>
+                                <td>
+                                    {% if record.latitude and record.longitude %}
+                                        <a href="https://maps.google.com/?q={{ record.latitude }},{{ record.longitude }}" 
+                                           target="_blank" class="text-decoration-none">
+                                            <i class="bi bi-geo-alt-fill"></i> Map
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

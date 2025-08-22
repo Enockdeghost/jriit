@@ -1,0 +1,732 @@
+{% extends 'base.html' %}
+
+{% block styles %}
+<style>
+    /* Enhanced Attendance status badges */
+    .badge-present {
+        background-color: #28a745;
+        padding: 0.35em 0.65em;
+        font-size: 0.75em;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        border-radius: 12px;
+    }
+
+    .badge-late {
+        background-color: #ffc107;
+        color: #212529;
+        padding: 0.35em 0.65em;
+        font-size: 0.75em;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        border-radius: 12px;
+    }
+
+    .badge-absent {
+        background-color: #dc3545;
+        padding: 0.35em 0.65em;
+        font-size: 0.75em;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        border-radius: 12px;
+    }
+
+    /* Enhanced Card styles with creative touches */
+    .card {
+        border-radius: 12px;
+        box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.08);
+        border: none;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px 0 rgba(0, 0, 0, 0.12);
+    }
+
+    .card-header {
+        background-color: #ffffff;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        border-radius: 12px 12px 0 0 !important;
+        padding: 1.25rem 1.5rem;
+    }
+
+    /* Creative table styles */
+    .table-responsive {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 12px;
+    }
+
+    .table {
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .table thead th {
+        background-color: #f8f9fa;
+        border-top: none;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+
+    .table td, .table th {
+        vertical-align: middle;
+        padding: 1rem;
+        border-top: 1px solid rgba(0, 0, 0, 0.03);
+    }
+
+    .table tr:first-child th:first-child {
+        border-top-left-radius: 12px;
+    }
+
+    .table tr:first-child th:last-child {
+        border-top-right-radius: 12px;
+    }
+
+    .table tr:last-child td:first-child {
+        border-bottom-left-radius: 12px;
+    }
+
+    .table tr:last-child td:last-child {
+        border-bottom-right-radius: 12px;
+    }
+
+    /* Enhanced Modal styles */
+    .modal-content {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal-header {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        padding: 1.25rem 1.5rem;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .modal-footer {
+        border-top: 1px solid rgba(0, 0, 0, 0.05);
+        padding: 1rem 1.5rem;
+    }
+
+    /* Enhanced buttons */
+    .btn {
+        border-radius: 8px;
+        font-weight: 600;
+        padding: 0.5rem 1.1rem;
+        letter-spacing: 0.3px;
+        transition: all 0.2s ease;
+    }
+
+    .btn-sm {
+        padding: 0.35rem 0.75rem;
+    }
+
+    .btn-primary {
+        background-color: #4e73df;
+        border-color: #4e73df;
+    }
+
+    .btn-primary:hover {
+        background-color: #3a5ccc;
+        border-color: #3a5ccc;
+        transform: translateY(-1px);
+    }
+
+    /* Enhanced page header */
+    .page-header {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        padding-bottom: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    /* Creative chart container */
+    .chart-area {
+        position: relative;
+        height: 10rem;
+        width: 100%;
+    }
+
+    .chart-pie {
+        position: relative;
+        height: 15rem;
+    }
+
+    @media (min-width: 768px) {
+        .chart-area {
+            height: 20rem;
+        }
+    }
+
+    /* Enhanced form controls */
+    .form-control {
+        border-radius: 8px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        padding: 0.5rem 0.75rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        border-color: #4e73df;
+        box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.15);
+    }
+
+    /* Creative hover effects for table rows */
+    .table-hover tbody tr {
+        transition: all 0.2s ease;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: rgba(78, 115, 223, 0.03);
+        transform: translateX(2px);
+    }
+
+    /* Custom scrollbar for tables */
+    .table-responsive::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* Enhanced dropdown menu */
+    .dropdown-menu {
+        border-radius: 8px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        border: none;
+        padding: 0.5rem 0;
+    }
+
+    .dropdown-item {
+        padding: 0.5rem 1.5rem;
+        transition: all 0.2s ease;
+    }
+
+    .dropdown-item:hover {
+        background-color: rgba(78, 115, 223, 0.1);
+        color: #4e73df;
+    }
+
+    /* Creative status indicators */
+    .status-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 6px;
+    }
+
+    .status-present {
+        background-color: #28a745;
+    }
+
+    .status-late {
+        background-color: #ffc107;
+    }
+
+    .status-absent {
+        background-color: #dc3545;
+    }
+
+    /* Enhanced action buttons */
+    .btn-action {
+        padding: 0.35rem 0.65rem;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        transition: all 0.2s ease;
+    }
+
+    .btn-action:hover {
+        transform: translateY(-1px);
+    }
+
+    /* Creative info boxes */
+    .info-box {
+        background: #ffffff;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+        border-left: 4px solid #4e73df;
+    }
+
+    .info-box h5 {
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+        color: #4e73df;
+    }
+
+    .info-box p {
+        margin-bottom: 0;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Enhanced Page Header -->
+    <div class="page-header mb-4">
+        <div class="d-flex flex-column flex-md-row align-items-center justify-content-between">
+            <div class="mb-3 mb-md-0">
+                <h1 class="h3 mb-0 text-gray-800">
+                    <i class="fas fa-calendar-check mr-2"></i>Lesson Details
+                </h1>
+                <p class="mb-0 text-muted">Detailed view of attendance records for this lesson</p>
+            </div>
+            <div class="d-flex">
+                <a href="{{ url_for('admin_export_attendance', lesson_id=lesson.id, format='csv') }}" class="btn btn-primary btn-sm mr-2">
+                    <i class="fas fa-download fa-sm mr-1"></i> Export CSV
+                </a>
+                <a href="{{ url_for('admin_lessons') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-arrow-left fa-sm mr-1"></i> Back to Lessons
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lesson Summary Row -->
+    <div class="row">
+        <!-- Main Lesson Card -->
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-info-circle mr-2"></i>Lesson Information
+                    </h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownMenuLink">
+                            <a class="dropdown-item" href="#" data-toggle="modal" data-target="#statusModal">
+                                <i class="fas fa-exchange-alt mr-2"></i>Change Status
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-box mb-3">
+                                <h5>Lesson Title</h5>
+                                <p>{{ lesson.title }}</p>
+                            </div>
+                            
+                            <div class="info-box mb-3">
+                                <h5>Subject</h5>
+                                <p>{{ lesson.subject.subject_name }} ({{ lesson.subject.course }} - Semester {{ lesson.subject.semester }})</p>
+                            </div>
+                            
+                            <div class="info-box mb-3">
+                                <h5>Teacher</h5>
+                                <p>{{ lesson.teacher.user.full_name }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-box mb-3">
+                                <h5>Date & Time</h5>
+                                <p>{{ lesson.date_time.strftime('%Y-%m-%d %H:%M') }}</p>
+                            </div>
+                            
+                            <div class="info-box mb-3">
+                                <h5>Duration & Location</h5>
+                                <p>{{ lesson.duration }} minutes • {{ lesson.location or 'Not specified' }}</p>
+                            </div>
+                            
+                            <div class="info-box">
+                                <h5>QR & Geo Settings</h5>
+                                <p class="mb-1">
+                                    <span class="font-weight-bold">QR Expiry:</span> {{ lesson.qr_expiry.strftime('%Y-%m-%d %H:%M') }}
+                                </p>
+                                <p class="mb-1">
+                                    <span class="font-weight-bold">Geo-fencing:</span> 
+                                    {% if lesson.latitude and lesson.longitude %}
+                                    Enabled ({{ lesson.geo_radius }}m radius)
+                                    {% else %}
+                                    Not enabled
+                                    {% endif %}
+                                </p>
+                                <p class="mb-0">
+                                    <span class="font-weight-bold">Max Scans:</span> {{ lesson.max_scans or 'No limit' }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Stats Card -->
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-chart-pie mr-2"></i>Attendance Summary
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-pie pt-4 pb-2">
+                        <canvas id="attendancePieChart"></canvas>
+                    </div>
+                    <div class="mt-4 text-center small">
+                        <div class="d-flex justify-content-center mb-2">
+                            <div class="mr-3">
+                                <span class="status-indicator status-present"></span>
+                                <span>Present: {{ total_present }}</span>
+                            </div>
+                            <div class="mr-3">
+                                <span class="status-indicator status-late"></span>
+                                <span>Late: {{ (attendance_records|selectattr('0.status', 'equalto', 'late')|list|length) }}</span>
+                            </div>
+                            <div>
+                                <span class="status-indicator status-absent"></span>
+                                <span>Absent: {{ total_expected - total_present }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-center mt-3">
+                        <div class="h4 font-weight-bold text-primary">
+                            <i class="fas fa-percentage mr-2"></i>{{ attendance_rate|round(1) }}% Attendance
+                        </div>
+                        <small class="text-muted">Out of {{ total_expected }} expected students</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Records Card -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="fas fa-list-alt mr-2"></i>Attendance Records
+            </h6>
+            <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#manualAttendanceModal">
+                <i class="fas fa-plus mr-1"></i> Add Manual Attendance
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="attendanceTable" width="100%" cellspacing="0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>Roll No.</th>
+                            <th>Student Name</th>
+                            <th>Status</th>
+                            <th>Scan Time</th>
+                            <th>Method</th>
+                            <th>Notes</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for attendance, student, user in attendance_records %}
+                        <tr>
+                            <td>{{ student.roll_number }}</td>
+                            <td>{{ student.full_name }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if attendance.status == 'present' %}badge-present
+                                    {% elif attendance.status == 'late' %}badge-late
+                                    {% else %}badge-absent{% endif %}">
+                                    {{ attendance.status|title }}
+                                </span>
+                            </td>
+                            <td>{{ attendance.scan_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>{{ attendance.scan_method|title }}</td>
+                            <td>{{ attendance.validation_notes or '-' }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-warning edit-attendance btn-action" 
+                                    data-id="{{ attendance.id }}"
+                                    data-student="{{ student.id }}"
+                                    data-status="{{ attendance.status }}"
+                                    data-notes="{{ attendance.validation_notes or '' }}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        <!-- Expected but not present students -->
+                        {% for student in expected_students %}
+                            {% set present_student_ids = attendance_records|map(attribute='1.id')|list %}
+                            {% if student.id not in present_student_ids %}
+                            <tr>
+                                <td>{{ student.roll_number }}</td>
+                                <td>{{ student.full_name }}</td>
+                                <td><span class="badge badge-absent">Absent</span></td>
+                                <td>-</td>
+                                <td>-</td>
+                                <td>-</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-success add-attendance btn-action" 
+                                        data-student="{{ student.id }}">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Status Change Modal -->
+<div class="modal fade" id="statusModal" tabindex="-1" role="dialog" aria-labelledby="statusModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="statusModalLabel">
+                    <i class="fas fa-exchange-alt mr-2"></i>Change Lesson Status
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+            <form action="{{ url_for('admin_update_lesson_status', lesson_id=lesson.id) }}" method="POST">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="status">Select Status</label>
+                        <select class="form-control" id="status" name="status" required>
+                            <option value="active" {% if lesson.status == 'active' %}selected{% endif %}>Active</option>
+                            <option value="paused" {% if lesson.status == 'paused' %}selected{% endif %}>Paused</option>
+                            <option value="completed" {% if lesson.status == 'completed' %}selected{% endif %}>Completed</option>
+                            <option value="cancelled" {% if lesson.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" data-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary" type="submit">Update Status</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Manual Attendance Modal -->
+<div class="modal fade" id="manualAttendanceModal" tabindex="-1" role="dialog" aria-labelledby="manualAttendanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="manualAttendanceModalLabel">
+                    <i class="fas fa-user-plus mr-2"></i>Add Manual Attendance
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+            <form action="{{ url_for('admin_manual_attendance', lesson_id=lesson.id) }}" method="POST">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="student_id">Student</label>
+                        <select class="form-control" id="student_id" name="student_id" required>
+                            {% for student in expected_students %}
+                            <option value="{{ student.id }}">{{ student.roll_number }} - {{ student.full_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="status">Status</label>
+                        <select class="form-control" id="status" name="status" required>
+                            <option value="present">Present</option>
+                            <option value="late">Late</option>
+                            <option value="absent">Absent</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="notes">Notes</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" data-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary" type="submit">Save Attendance</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Attendance Modal -->
+<div class="modal fade" id="editAttendanceModal" tabindex="-1" role="dialog" aria-labelledby="editAttendanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editAttendanceModalLabel">
+                    <i class="fas fa-edit mr-2"></i>Edit Attendance Record
+                </h5>
+                <button class="close" type="button" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+            <form id="editAttendanceForm" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" id="edit_attendance_id" name="attendance_id">
+                    <div class="form-group">
+                        <label for="edit_status">Status</label>
+                        <select class="form-control" id="edit_status" name="status" required>
+                            <option value="present">Present</option>
+                            <option value="late">Late</option>
+                            <option value="absent">Absent</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit_notes">Notes</label>
+                        <textarea class="form-control" id="edit_notes" name="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" type="button" data-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary" type="submit">Update Record</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<!-- Page level plugins -->
+<script src="{{ url_for('static', filename='vendor/datatables/jquery.dataTables.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/datatables/dataTables.bootstrap4.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/chart.js/Chart.min.js') }}"></script>
+
+<script>
+$(document).ready(function() {
+    // Initialize DataTable with enhanced options
+    $('#attendanceTable').DataTable({
+        "language": {
+            "search": "_INPUT_",
+            "searchPlaceholder": "Search records...",
+            "lengthMenu": "Show _MENU_ records per page",
+            "zeroRecords": "No matching records found",
+            "info": "Showing _START_ to _END_ of _TOTAL_ records",
+            "infoEmpty": "No records available",
+            "infoFiltered": "(filtered from _MAX_ total records)",
+            "paginate": {
+                "previous": "<i class='fas fa-chevron-left'></i>",
+                "next": "<i class='fas fa-chevron-right'></i>"
+            }
+        },
+        "dom": "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+               "<'row'<'col-sm-12'tr>>" +
+               "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+        "drawCallback": function() {
+            $('.dataTables_paginate > .pagination').addClass('pagination-sm');
+        }
+    });
+
+    // Handle edit attendance button clicks
+    $('.edit-attendance').click(function() {
+        var attendanceId = $(this).data('id');
+        var studentId = $(this).data('student');
+        var status = $(this).data('status');
+        var notes = $(this).data('notes');
+        
+        $('#edit_attendance_id').val(attendanceId);
+        $('#edit_status').val(status);
+        $('#edit_notes').val(notes);
+        
+        // Set form action
+        $('#editAttendanceForm').attr('action', "{{ url_for('admin_manual_attendance', lesson_id=lesson.id) }}");
+        
+        $('#editAttendanceModal').modal('show');
+    });
+
+    // Handle add attendance for absent students
+    $('.add-attendance').click(function() {
+        var studentId = $(this).data('student');
+        
+        $('#student_id').val(studentId);
+        $('#manualAttendanceModal').modal('show');
+    });
+
+    // Enhanced Pie Chart with animation
+    var ctx = document.getElementById("attendancePieChart");
+    var myPieChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ["Present", "Late", "Absent"],
+            datasets: [{
+                data: [
+                    {{ (attendance_records|selectattr('0.status', 'equalto', 'present')|list|length) }},
+                    {{ (attendance_records|selectattr('0.status', 'equalto', 'late')|list|length) }},
+                    {{ total_expected - total_present }}
+                ],
+                backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
+                hoverBackgroundColor: ['#218838', '#e0a800', '#c82333'],
+                hoverBorderColor: "rgba(234, 236, 244, 1)",
+                borderWidth: 2,
+            }],
+        },
+        options: {
+            maintainAspectRatio: false,
+            cutoutPercentage: 70,
+            animation: {
+                animateScale: true,
+                animateRotate: true
+            },
+            tooltips: {
+                backgroundColor: "rgb(255,255,255)",
+                bodyFontColor: "#858796",
+                borderColor: '#dddfeb',
+                borderWidth: 1,
+                xPadding: 15,
+                yPadding: 15,
+                displayColors: false,
+                caretPadding: 10,
+                callbacks: {
+                    label: function(tooltipItem, data) {
+                        var dataset = data.datasets[tooltipItem.datasetIndex];
+                        var total = dataset.data.reduce(function(previousValue, currentValue) {
+                            return previousValue + currentValue;
+                        });
+                        var currentValue = dataset.data[tooltipItem.index];
+                        var percentage = Math.floor(((currentValue/total) * 100)+0.5);
+                        return data.labels[tooltipItem.index] + ": " + currentValue + " (" + percentage + "%)";
+                    }
+                }
+            },
+            legend: {
+                display: false
+            }
+        },
+    });
+    
+    // Add smooth scroll to top when pagination is clicked
+    $('.dataTables_wrapper').on('click', '.paginate_button', function() {
+        $('html, body').animate({
+            scrollTop: $('.dataTables_wrapper').offset().top - 20
+        }, 300);
+    });
+});
+</script>
+{% endblock scripts %}
+
+{% endblock %}

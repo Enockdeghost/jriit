@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Enter Attendance PIN{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-key me-2"></i>Enter Attendance PIN
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form id="pinForm" method="POST" action="{{ url_for('enter_pin') }}">
+                        <div class="mb-3">
+                            <label for="pin" class="form-label">
+                                <i class="fas fa-lock me-1"></i>Lesson PIN Code
+                            </label>
+                            <input type="text" class="form-control form-control-lg" id="pin" name="pin" 
+                                   placeholder="Enter 6-digit PIN" required autofocus>
+                            <div class="form-text">Get the PIN from your instructor</div>
+                        </div>
+
+                        <!-- Hidden fields for location data -->
+                        <input type="hidden" id="latitude" name="latitude">
+                        <input type="hidden" id="longitude" name="longitude">
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-check-circle me-2"></i>Submit Attendance
+                            </button>
+                            <a href="{{ url_for('student_lessons') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Lessons
+                            </a>
+                        </div>
+                    </form>
+
+                    <div class="mt-4">
+                        <div class="alert alert-info">
+                            <h5 class="alert-heading">
+                                <i class="fas fa-info-circle me-2"></i>Instructions
+                            </h5>
+                            <ul class="mb-0">
+                                <li>Enter the 6-digit PIN provided by your instructor</li>
+                                <li>Make sure you're in the correct location (if required)</li>
+                                <li>Attendance will be marked immediately upon submission</li>
+                                <li>You can only mark attendance once per lesson</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get user's current location
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    document.getElementById('latitude').value = position.coords.latitude;
+                    document.getElementById('longitude').value = position.coords.longitude;
+                },
+                function(error) {
+                    console.warn('Geolocation error:', error);
+                    // You might want to show a warning to the user here
+                }
+            );
+        } else {
+            console.warn('Geolocation is not supported by this browser');
+        }
+
+        // Form validation
+        const pinForm = document.getElementById('pinForm');
+        pinForm.addEventListener('submit', function(e) {
+            const pinInput = document.getElementById('pin');
+            if (!pinInput.value || pinInput.value.length < 6) {
+                e.preventDefault();
+                alert('Please enter a valid 6-digit PIN');
+                pinInput.focus();
+            }
+        });
+    });
+</script>
+{% endblock %}

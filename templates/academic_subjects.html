@@ -1,0 +1,232 @@
+<!-- academic_subjects.html -->
+{% extends "base.html" %}
+
+{% block title %}Manage Subjects{% endblock %}
+{% block heading %}Subject Management{% endblock %}
+
+{% block header_buttons %}
+<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addSubjectModal">
+    <i class="fas fa-plus me-1"></i> Add New Subject
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="card shadow mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">All Subjects</h6>
+        <div class="d-flex">
+            <select class="form-select form-select-sm me-2" id="courseFilter">
+                <option value="">All Courses</option>
+                {% for course in courses %}
+                <option value="{{ course }}">{{ course }}</option>
+                {% endfor %}
+            </select>
+            <select class="form-select form-select-sm" id="semesterFilter">
+                <option value="">All Semesters</option>
+                {% for i in range(1,9) %}
+                <option value="{{ i }}">Semester {{ i }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover" id="subjectsTable" width="100%" cellspacing="0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Subject</th>
+                        <th>Code</th>
+                        <th>Course</th>
+                        <th>Semester</th>
+                        <th>Credits</th>
+                        <th>Assigned Teacher</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for subject in subjects %}
+                    <tr>
+                        <td>{{ subject.subject_name }}</td>
+                        <td>{{ subject.subject_code }}</td>
+                        <td>{{ subject.course }}</td>
+                        <td>Semester {{ subject.semester }}</td>
+                        <td>{{ subject.credits }}</td>
+                        <td>
+                            {% if subject.teacher %}
+                            <div class="d-flex align-items-center">
+                                <div class="avatar me-2">
+                                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" 
+                                         style="width: 32px; height: 32px;">
+                                        {{ subject.teacher.full_name.split()[-1][0] }}
+                                    </div>
+                                </div>
+                                <div>
+                                    {{ subject.teacher.full_name }}
+                                    <div class="text-muted small">{{ subject.teacher.staff_id }}</div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">Not assigned</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-{% if subject.is_active %}success{% else %}secondary{% endif %}">
+                                {{ 'Active' if subject.is_active else 'Inactive' }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-primary assign-teacher" 
+                                        data-subject-id="{{ subject.id }}"
+                                        data-subject-name="{{ subject.subject_name }}"
+                                        data-teacher-id="{{ subject.teacher_id if subject.teacher_id else '' }}">
+                                    <i class="fas fa-user-edit"></i> Assign
+                                </button>
+                                <a href="#" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <div class="py-5">
+                                <i class="fas fa-book-open fa-3x text-muted mb-3"></i>
+                                <h5 class="text-gray-800">No Subjects Found</h5>
+                                <p class="text-muted">Add new subjects to get started</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Teacher Modal -->
+<div class="modal fade" id="assignTeacherModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('assign_teacher', subject_id=0) }}" id="assignForm">
+                <div class="modal-header">
+                    <h5 class="modal-title">Assign Teacher</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 class="mb-3" id="subjectNameDisplay">Subject Name</h6>
+                    <input type="hidden" name="subject_id" id="subjectIdInput">
+                    <div class="mb-3">
+                        <label for="teacherSelect" class="form-label">Select Teacher</label>
+                        <select class="form-select" id="teacherSelect" name="teacher_id">
+                            <option value="">Unassign Teacher</option>
+                            {% for teacher in teachers %}
+                            <option value="{{ teacher.id }}">{{ teacher.full_name }} ({{ teacher.staff_id }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Assignment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Subject Modal -->
+<div class="modal fade" id="addSubjectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('add_subject') }}">  <!-- Assuming this route exists -->
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Subject</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="subjectName" class="form-label">Subject Name</label>
+                        <input type="text" class="form-control" id="subjectName" name="subject_name" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="subjectCode" class="form-label">Subject Code</label>
+                            <input type="text" class="form-control" id="subjectCode" name="subject_code" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="subjectCredits" class="form-label">Credits</label>
+                            <input type="number" class="form-control" id="subjectCredits" name="credits" min="1" max="10" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="subjectCourse" class="form-label">Course</label>
+                            <select class="form-select" id="subjectCourse" name="course" required>
+                                <option value="" selected disabled>Select Course</option>
+                                {% for course in courses %}
+                                <option value="{{ course }}">{{ course }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="subjectSemester" class="form-label">Semester</label>
+                            <select class="form-select" id="subjectSemester" name="semester" required>
+                                <option value="" selected disabled>Select Semester</option>
+                                {% for i in range(1,9) %}
+                                <option value="{{ i }}">Semester {{ i }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Subject</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        $('.assign-teacher').click(function() {
+            const subjectId = $(this).data('subject-id');
+            const subjectName = $(this).data('subject-name');
+            const teacherId = $(this).data('teacher-id');
+            
+            $('#subjectNameDisplay').text(subjectName);
+            $('#subjectIdInput').val(subjectId);
+            $('#teacherSelect').val(teacherId);
+            
+            // Update form action
+            const form = $('#assignForm');
+            const action = form.attr('action').replace('/0', '/' + subjectId);
+            form.attr('action', action);
+            
+            $('#assignTeacherModal').modal('show');
+        });
+        
+        // Table filtering
+        $('#courseFilter, #semesterFilter').change(function() {
+            const course = $('#courseFilter').val().toLowerCase();
+            const semester = $('#semesterFilter').val();
+            
+            $('#subjectsTable tbody tr').each(function() {
+                const rowCourse = $(this).find('td:eq(2)').text().toLowerCase();
+                const rowSemester = $(this).find('td:eq(3)').text().replace('Semester ', '');
+                
+                const showCourse = course === '' || rowCourse.includes(course);
+                const showSemester = semester === '' || rowSemester === semester;
+                
+                $(this).toggle(showCourse && showSemester);
+            });
+        });
+    });
+</script>
+{% endblock %}

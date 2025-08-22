@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>All Students</h2>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h4>Student List</h4>
+    </div>
+    <div class="card-body">
+        {% if students %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Roll Number</th>
+                            <th>Name</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                            <tr>
+                                <td>{{ student.roll_number }}</td>
+                                <td>{{ student.name }}</td>
+                                <td>
+                                    <a href="{{ url_for('add_result') }}" class="btn btn-sm btn-primary" 
+                                       onclick="document.getElementById('roll_number').value='{{ student.roll_number }}'">
+                                        Add Result
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p>No students registered yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

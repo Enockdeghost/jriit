@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}All Results{% endblock %}
+{% block heading %}Result Management{% endblock %}
+
+{% block header_buttons %}
+<div class="d-flex">
+    <a href="{{ url_for('review_results') }}" class="btn btn-sm btn-outline-primary me-2">
+        <i class="fas fa-tasks me-1"></i> Review Pending
+    </a>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#filterModal">
+        <i class="fas fa-filter me-1"></i> Filters
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card shadow mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">All Results</h6>
+        <div>
+            <span class="badge bg-success me-2">Approved: {{ counts.approved if counts else 0 }}</span>
+            <span class="badge bg-warning text-dark me-2">Pending: {{ counts.pending if counts else 0 }}</span>
+            <span class="badge bg-danger">Rejected: {{ counts.rejected if counts else 0 }}</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover" id="resultsTable" width="100%" cellspacing="0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Student</th>
+                        <th>Subject</th>
+                        <th>Marks</th>
+                        <th>Grade</th>
+                        <th>Teacher</th>
+                        <th>Status</th>
+                        <th>Submitted</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in results %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar me-2">
+                                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" 
+                                         style="width: 32px; height: 32px;">
+                                        {{ result.Student.full_name.split()[-1][0] if result.Student and result.Student.full_name else '?' }}
+                                    </div>
+                                </div>
+                                <div>
+                                    {{ result.Student.full_name if result.Student and result.Student.full_name else 'N/A' }}
+                                    <div class="text-muted small">{{ result.Student.student_id if result.Student and result.Student.student_id else 'N/A' }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div>{{ result.Subject.subject_name if result.Subject and result.Subject.subject_name else 'N/A' }}</div>
+                            <div class="text-muted small">{{ result.Subject.subject_code if result.Subject and result.Subject.subject_code else 'N/A' }}</div>
+                        </td>
+                        <td class="fw-bold">{{ result.Result.marks if result.Result and result.Result.marks is not none else 'N/A' }}</td>
+                        <td>
+                            {% if result.Result and result.Result.grade %}
+                            <span class="badge 
+                                {% if result.Result.grade in ['A+', 'A'] %}bg-success
+                                {% elif result.Result.grade in ['B+', 'B'] %}bg-info
+                                {% elif result.Result.grade in ['C+', 'C'] %}bg-primary
+                                {% else %}bg-danger
+                                {% endif %}">
+                                {{ result.Result.grade }} ({{ result.Result.gpa if result.Result.gpa is not none else 'N/A' }})
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if result.Teacher and result.Teacher.full_name %}
+                            {{ result.Teacher.full_name }}
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set status = result.Result.status if result.Result and result.Result.status else 'pending' %}
+                            <span class="badge 
+                                {% if status == 'approved' %}bg-success
+                                {% elif status == 'rejected' %}bg-danger
+                                {% else %}bg-warning text-dark
+                                {% endif %}">
+                                {{ status|title }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if result.Result and result.Result.submitted_at %}
+                            <div>{{ result.Result.submitted_at.strftime('%d %b %Y') }}</div>
+                            <div class="text-muted small">{{ result.Result.submitted_at.strftime('%I:%M %p') }}</div>
+                            {% else %}
+                            <span class="text-muted">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary view-details"
+                                    data-student="{{ result.Student.full_name if result.Student and result.Student.full_name else 'N/A' }}"
+                                    data-subject="{{ result.Subject.subject_name if result.Subject and result.Subject.subject_name else 'N/A' }}"
+                                    data-marks="{{ result.Result.marks if result.Result and result.Result.marks is not none else 'N/A' }}"
+                                    data-grade="{{ result.Result.grade if result.Result and result.Result.grade else 'N/A' }}"
+                                    data-gpa="{{ result.Result.gpa if result.Result and result.Result.gpa is not none else 'N/A' }}"
+                                    data-comments="{{ result.Result.comments if result.Result and result.Result.comments else 'No comments' }}"
+                                    data-status="{{ result.Result.status if result.Result and result.Result.status else 'pending' }}"
+                                    data-teacher="{{ result.Teacher.full_name if result.Teacher and result.Teacher.full_name else 'N/A' }}">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <h5 class="text-gray-800">No Results Found</h5>
+                            <p class="text-muted">Try adjusting your filters</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if results and pagination %}
+        <div class="d-flex justify-content-between align-items-center mt-4">
+            <div class="text-muted">
+                Showing {{ pagination.first }} to {{ pagination.last }} of {{ pagination.total }} results
+            </div>
+            <nav>
+                <ul class="pagination mb-0">
+                    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('all_results', page=pagination.prev_num) if pagination.has_prev else '#' }}">Previous</a>
+                    </li>
+                    {% for page in pagination.iter_pages() %}
+                        <li class="page-item {% if page == pagination.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('all_results', page=page) }}">{{ page }}</a>
+                        </li>
+                    {% endfor %}
+                    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('all_results', page=pagination.next_num) if pagination.has_next else '#' }}">Next</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="GET" action="{{ url_for('all_results') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">Filter Results</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="filterCourse" class="form-label">Course</label>
+                        <select class="form-select" id="filterCourse" name="course">
+                            <option value="">All Courses</option>
+                            {% for course in courses %}
+                            <option value="{{ course.id }}" {% if course_filter == course.id|string %}selected{% endif %}>{{ course.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="filterSemester" class="form-label">Semester</label>
+                        <select class="form-select" id="filterSemester" name="semester">
+                            <option value="">All Semesters</option>
+                            {% for i in range(1,9) %}
+                            <option value="{{ i }}" {% if semester_filter == i|string %}selected{% endif %}>Semester {{ i }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="filterStatus" class="form-label">Status</label>
+                        <select class="form-select" id="filterStatus" name="status">
+                            <option value="">All Statuses</option>
+                            <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>Approved</option>
+                            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                            <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Result Details Modal -->
+<div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Result Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="mb-2">
+                            <label class="form-label text-muted small mb-0">Student</label>
+                            <div class="fw-bold" id="detailStudent"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-2">
+                            <label class="form-label text-muted small mb-0">Subject</label>
+                            <div class="fw-bold" id="detailSubject"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <div class="mb-2">
+                            <label class="form-label text-muted small mb-0">Marks</label>
+                            <div class="fw-bold fs-4" id="detailMarks"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-2">
+                            <label class="form-label text-muted small mb-0">Grade</label>
+                            <div class="fw-bold fs-4" id="detailGrade"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-2">
+                            <label class="form-label text-muted small mb-0">GPA</label>
+                            <div class="fw-bold fs-4" id="detailGpa"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="mb-2">
+                            <label class="form-label text-muted small mb-0">Teacher</label>
+                            <div class="fw-bold" id="detailTeacher"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-2">
+                            <label class="form-label text-muted small mb-0">Status</label>
+                            <div><span class="badge" id="detailStatus"></span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label text-muted small mb-0">Comments</label>
+                    <div class="fw-bold" id="detailComments"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Result details modal
+        $('.view-details').click(function() {
+            $('#detailStudent').text($(this).data('student'));
+            $('#detailSubject').text($(this).data('subject'));
+            $('#detailMarks').text($(this).data('marks'));
+            $('#detailGrade').text($(this).data('grade'));
+            $('#detailGpa').text($(this).data('gpa'));
+            $('#detailTeacher').text($(this).data('teacher'));
+            $('#detailComments').text($(this).data('comments'));
+            
+            const status = $(this).data('status');
+            const $statusBadge = $('#detailStatus');
+            $statusBadge.text(status.charAt(0).toUpperCase() + status.slice(1));
+            
+            // Set badge color based on status
+            $statusBadge.removeClass('bg-success bg-warning bg-danger');
+            if (status === 'approved') {
+                $statusBadge.addClass('bg-success');
+            } else if (status === 'pending') {
+                $statusBadge.addClass('bg-warning text-dark');
+            } else {
+                $statusBadge.addClass('bg-danger');
+            }
+            
+            $('#detailsModal').modal('show');
+        });
+    });
+</script>
+{% endblock %}

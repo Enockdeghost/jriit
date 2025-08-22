@@ -1,0 +1,603 @@
+{% extends "base_cal.html" %}
+
+{% block title %}Create Announcement{% endblock %}
+
+{% block styles %}
+<style>
+    :root {
+        --primary-color: #2c3e50;
+        --secondary-color: #34495e;
+        --accent-color: #3498db;
+        --success-color: #27ae60;
+        --warning-color: #f39c12;
+        --danger-color: #e74c3c;
+        --light-bg: #f8f9fa;
+        --border-color: #dee2e6;
+    }
+
+    body {
+        background-color: var(--light-bg);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .navbar {
+        background-color: var(--primary-color) !important;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .navbar-brand {
+        font-weight: 600;
+        font-size: 1.25rem;
+    }
+
+    .main-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+
+    .form-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 25px rgba(0,0,0,0.08);
+        border: none;
+        overflow: hidden;
+    }
+
+    .form-header {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        padding: 2rem;
+        text-align: center;
+        border-radius: 15px 15px 0 0;
+    }
+
+    .form-header h2 {
+        margin: 0;
+        font-weight: 600;
+        font-size: 1.75rem;
+    }
+
+    .form-header p {
+        margin: 0.5rem 0 0 0;
+        opacity: 0.9;
+    }
+
+    .form-container {
+        padding: 2.5rem;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: var(--secondary-color);
+        margin-bottom: 0.5rem;
+    }
+
+    .form-control, .form-select {
+        border: 2px solid var(--border-color);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.15);
+    }
+
+    .target-option {
+        background: white;
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .target-option:hover {
+        border-color: var(--accent-color);
+        background-color: #f8f9ff;
+        transform: translateY(-2px);
+    }
+
+    .target-option.active {
+        border-color: var(--accent-color);
+        background-color: #e3f2fd;
+        transform: translateY(-2px);
+    }
+
+    .target-option i {
+        font-size: 1.25rem;
+        color: var(--accent-color);
+        width: 24px;
+        text-align: center;
+    }
+
+    .target-option .fw-medium {
+        color: var(--secondary-color);
+        font-weight: 600;
+    }
+
+    .file-upload {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+    }
+
+    .file-upload-input {
+        position: absolute;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+    }
+
+    .file-upload-label {
+        display: block;
+        padding: 1rem;
+        border: 2px dashed var(--border-color);
+        border-radius: 10px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: white;
+    }
+
+    .file-upload-label:hover {
+        border-color: var(--accent-color);
+        background-color: #f8f9ff;
+    }
+
+    .file-upload-label i {
+        font-size: 1.5rem;
+        color: var(--accent-color);
+        margin-right: 0.5rem;
+    }
+
+    .preview-container {
+        background: var(--light-bg);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-top: 1rem;
+    }
+
+    .preview-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .priority-badge {
+        display: inline-block;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .badge-low {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .badge-medium {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .badge-high {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .btn {
+        border-radius: 10px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background-color: var(--accent-color);
+        border-color: var(--accent-color);
+    }
+
+    .btn-primary:hover {
+        background-color: #2980b9;
+        border-color: #2980b9;
+        transform: translateY(-2px);
+    }
+
+    .btn-outline-secondary {
+        border-color: var(--secondary-color);
+        color: var(--secondary-color);
+    }
+
+    .btn-outline-secondary:hover {
+        background-color: var(--secondary-color);
+        border-color: var(--secondary-color);
+        transform: translateY(-2px);
+    }
+
+    .sidebar-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 5px 25px rgba(0,0,0,0.08);
+        border: none;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .sidebar-card h5 {
+        color: var(--secondary-color);
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .info-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        padding: 0.5rem;
+        background: var(--light-bg);
+        border-radius: 8px;
+    }
+
+    .info-item i {
+        color: var(--accent-color);
+        margin-right: 0.75rem;
+        width: 20px;
+        text-align: center;
+    }
+
+    .alert {
+        border-radius: 12px;
+        border: none;
+        padding: 1rem 1.5rem;
+    }
+
+    .alert-warning {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .alert-info {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+
+    @media (max-width: 768px) {
+        .main-container {
+            padding: 1rem;
+        }
+        
+        .form-container {
+            padding: 1.5rem;
+        }
+        
+        .form-header {
+            padding: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-container">
+    {% if user and user.role in ['admin', 'teacher', 'academic'] %}
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="form-card">
+                <div class="form-header">
+                    <h2><i class="bi bi-megaphone me-2"></i>Create New Announcement</h2>
+                    <p>Share important information with students and staff</p>
+                </div>
+                
+                <div class="form-container">
+                    <form method="POST" action="{{ url_for('add_announcement') }}" enctype="multipart/form-data">
+                        <!-- Title and Priority -->
+                        <div class="row mb-4">
+                            <div class="col-md-8 mb-3 mb-md-0">
+                                <label for="title" class="form-label">Announcement Title *</label>
+                                <input type="text" class="form-control" id="title" name="title" placeholder="Enter announcement title" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="priority" class="form-label">Priority Level *</label>
+                                <select class="form-select" id="priority" name="priority" required>
+                                    <option value="" disabled selected>Select priority</option>
+                                    {% for level in priority_levels %}
+                                    <option value="{{ level }}">{{ level|capitalize }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Content -->
+                        <div class="mb-4">
+                            <label for="content" class="form-label">Announcement Content *</label>
+                            <textarea class="form-control" id="content" name="content" rows="6" placeholder="Write your announcement details here..." required></textarea>
+                        </div>
+                        
+                        <!-- Target Audience -->
+                        <div class="mb-4">
+                            <label class="form-label">Target Audience *</label>
+                            
+                            <div class="target-option active" data-target="all">
+                                <i class="bi bi-people"></i>
+                                <div>
+                                    <div class="fw-medium">All Users</div>
+                                    <small class="text-muted">Visible to everyone in the system</small>
+                                </div>
+                            </div>
+                            
+                            <div class="target-option" data-target="department">
+                                <i class="bi bi-building"></i>
+                                <div>
+                                    <div class="fw-medium">Specific Department</div>
+                                    <small class="text-muted">Select a department to target</small>
+                                </div>
+                            </div>
+                            
+                            <div class="target-option" data-target="course">
+                                <i class="bi bi-journal-bookmark"></i>
+                                <div>
+                                    <div class="fw-medium">Specific Course</div>
+                                    <small class="text-muted">Select a course to target</small>
+                                </div>
+                            </div>
+                            
+                            <div class="target-option" data-target="year">
+                                <i class="bi bi-123"></i>
+                                <div>
+                                    <div class="fw-medium">Year Level</div>
+                                    <small class="text-muted">Select a year level</small>
+                                </div>
+                            </div>
+                            
+                            <input type="hidden" id="target_type" name="target_type" value="all">
+                            
+                            <div class="target-value-container mt-3" id="target-value-container" style="display: none;">
+                                <select class="form-select" id="target_value" name="target_value">
+                                    <option value="">Select target</option>
+                                    {% for dept in departments %}
+                                    <option value="{{ dept }}">{{ dept }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Expiration Date and Attachment -->
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-3 mb-md-0">
+                                <label for="expires_at" class="form-label">Expiration Date</label>
+                                <input type="date" class="form-control" id="expires_at" name="expires_at">
+                                <div class="form-text">Leave blank if no expiration</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Attachment</label>
+                                <div class="file-upload">
+                                    <input type="file" class="file-upload-input" id="attachment" name="attachment" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png">
+                                    <label for="attachment" class="file-upload-label">
+                                        <i class="bi bi-paperclip"></i>
+                                        <span>Choose file (PDF, DOC, XLS, JPG, PNG)</span>
+                                    </label>
+                                </div>
+                                <div class="form-text mt-2">Max file size: 5MB</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Preview -->
+                        <div class="preview-container">
+                            <div class="fw-bold mb-3"><i class="bi bi-eye me-2"></i>Preview</div>
+                            <div class="preview-card">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <span class="priority-badge badge-medium">Medium Priority</span>
+                                    <small class="text-muted">Today at {{ now.strftime('%I:%M %p') if now else '10:00 AM' }}</small>
+                                </div>
+                                <h4 class="mb-3">Your Announcement Title</h4>
+                                <p class="mb-0">Your announcement content will be displayed in this area. This preview shows how it will appear to recipients.</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Form Actions -->
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('announcements') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i> Back to Announcements
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-send me-2"></i> Publish Announcement
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <div class="sidebar-card">
+                <h5><i class="bi bi-info-circle me-2"></i>Guidelines</h5>
+                <div class="info-item">
+                    <i class="bi bi-check-circle"></i>
+                    <span>Keep titles clear and concise</span>
+                </div>
+                <div class="info-item">
+                    <i class="bi bi-check-circle"></i>
+                    <span>Use appropriate priority levels</span>
+                </div>
+                <div class="info-item">
+                    <i class="bi bi-check-circle"></i>
+                    <span>Target specific audiences when needed</span>
+                </div>
+                <div class="info-item">
+                    <i class="bi bi-check-circle"></i>
+                    <span>Set expiration dates for time-sensitive content</span>
+                </div>
+            </div>
+            
+            <div class="sidebar-card">
+                <h5><i class="bi bi-clock me-2"></i>Recent Activity</h5>
+                <div class="info-item">
+                    <i class="bi bi-megaphone"></i>
+                    <span>3 announcements this week</span>
+                </div>
+                <div class="info-item">
+                    <i class="bi bi-eye"></i>
+                    <span>Average 95% read rate</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Student View - Read Only -->
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="alert alert-info">
+                <h4 class="alert-heading"><i class="bi bi-info-circle me-2"></i>View Only Access</h4>
+                <p class="mb-0">You can view announcements but cannot create new ones. Only administrators, teachers, and academic staff can create announcements.</p>
+            </div>
+            
+            <div class="form-card">
+                <div class="form-header">
+                    <h2><i class="bi bi-megaphone me-2"></i>Announcements</h2>
+                    <p>Stay updated with the latest information</p>
+                </div>
+                
+                <div class="form-container">
+                    <div class="text-center">
+                        <a href="{{ url_for('announcements') }}" class="btn btn-primary">
+                            <i class="bi bi-list me-2"></i> View All Announcements
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Only run form scripts if user has permission
+        {% if user and user.role in ['admin', 'teacher', 'academic'] %}
+        // Target selection logic
+        const targetOptions = document.querySelectorAll('.target-option');
+        const targetTypeInput = document.getElementById('target_type');
+        const targetValueContainer = document.getElementById('target-value-container');
+        const targetValueSelect = document.getElementById('target_value');
+        
+        targetOptions.forEach(option => {
+            option.addEventListener('click', function() {
+                // Remove active class from all options
+                targetOptions.forEach(opt => opt.classList.remove('active'));
+                
+                // Add active class to clicked option
+                this.classList.add('active');
+                
+                // Get target type from data attribute
+                const targetType = this.getAttribute('data-target');
+                targetTypeInput.value = targetType;
+                
+                // Handle target value container
+                if (targetType === 'all') {
+                    targetValueContainer.style.display = 'none';
+                } else {
+                    targetValueContainer.style.display = 'block';
+                    
+                    // Clear existing options
+                    targetValueSelect.innerHTML = '<option value="">Select target</option>';
+                    
+                    // Add appropriate options based on target type
+                    if (targetType === 'department') {
+                        {% for dept in departments %}
+                        const deptOption = document.createElement('option');
+                        deptOption.value = '{{ dept }}';
+                        deptOption.textContent = '{{ dept }}';
+                        targetValueSelect.appendChild(deptOption);
+                        {% endfor %}
+                    } else if (targetType === 'course') {
+                        {% for course in courses %}
+                        const courseOption = document.createElement('option');
+                        courseOption.value = '{{ course }}';
+                        courseOption.textContent = '{{ course }}';
+                        targetValueSelect.appendChild(courseOption);
+                        {% endfor %}
+                    } else if (targetType === 'year') {
+                        for (let i = 1; i <= 4; i++) {
+                            const yearOption = document.createElement('option');
+                            yearOption.value = i;
+                            yearOption.textContent = `Year ${i}`;
+                            targetValueSelect.appendChild(yearOption);
+                        }
+                    }
+                }
+            });
+        });
+        
+        // Update preview when form changes
+        const titleInput = document.getElementById('title');
+        const contentInput = document.getElementById('content');
+        const prioritySelect = document.getElementById('priority');
+        const previewTitle = document.querySelector('.preview-card h4');
+        const previewContent = document.querySelector('.preview-card p');
+        const previewBadge = document.querySelector('.preview-card .priority-badge');
+        
+        titleInput.addEventListener('input', updatePreview);
+        contentInput.addEventListener('input', updatePreview);
+        prioritySelect.addEventListener('change', updatePreview);
+        
+        function updatePreview() {
+            // Update title
+            if (titleInput.value) {
+                previewTitle.textContent = titleInput.value;
+            } else {
+                previewTitle.textContent = 'Your Announcement Title';
+            }
+            
+            // Update content
+            if (contentInput.value) {
+                previewContent.textContent = contentInput.value;
+            } else {
+                previewContent.textContent = 'Your announcement content will be displayed in this area. This preview shows how it will appear to recipients.';
+            }
+            
+            // Update priority badge
+            if (prioritySelect.value) {
+                previewBadge.textContent = prioritySelect.value.charAt(0).toUpperCase() + prioritySelect.value.slice(1) + ' Priority';
+                previewBadge.className = 'priority-badge badge-' + prioritySelect.value;
+            } else {
+                previewBadge.textContent = 'Medium Priority';
+                previewBadge.className = 'priority-badge badge-medium';
+            }
+        }
+        
+        // Set min date for expiration date to today
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('expires_at').min = today;
+        
+        // File upload feedback
+        const fileInput = document.getElementById('attachment');
+        const fileLabel = document.querySelector('.file-upload-label span');
+        
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                fileLabel.textContent = this.files[0].name;
+            } else {
+                fileLabel.textContent = 'Choose file (PDF, DOC, XLS, JPG, PNG)';
+            }
+        });
+        {% endif %}
+    });
+</script>
+{% endblock %}

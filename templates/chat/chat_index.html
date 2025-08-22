@@ -1,0 +1,226 @@
+{% extends "base_chat.html" %}
+
+{% block title %}Chat{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Chat Sidebar -->
+    <div class="col-md-4 col-lg-3">
+        <div class="chat-sidebar p-3 fade-in">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">
+                    <i class="fas fa-comments text-primary me-2"></i>Chats
+                </h5>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newChatModal">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            
+            <!-- Search Bar -->
+            <div class="mb-3">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0">
+                        <i class="fas fa-search text-muted"></i>
+                    </span>
+                    <input type="text" class="form-control border-start-0 bg-light" 
+                           placeholder="Search chats..." id="chatSearch">
+                </div>
+            </div>
+            
+     
+            <div class="chat-rooms-list">
+                {% if user_rooms %}
+                    {% for room, participant in user_rooms %}
+                    <div class="chat-room-item p-3 cursor-pointer" 
+                         onclick="window.location.href='{{ url_for('chat_room', room_id=room.id) }}'">
+                        <div class="d-flex align-items-center">
+                            <div class="position-relative me-3">
+                                {% if room.room_type == 'private' %}
+                                    {% set other_user = room.participants|selectattr('user_id', 'ne', session['user_id'])|first %}
+                                    <img src="{{ other_user.user.avatar_url or '<i class="fas fa-plus"></i>'}}" 
+                                         alt="User Avatar" class="user-avatar">
+                                    <span class="online-indicator {{ 'bg-success' if other_user.user.is_online else 'bg-secondary' }}"></span>
+                                {% else %}
+                                    <div class="user-avatar bg-primary text-white d-flex align-items-center justify-content-center">
+                                        <i class="fas fa-users"></i>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <h6 class="mb-1 fw-bold">
+                                        {% if room.room_type == 'private' %}
+                                            {{ other_user.user.username }}
+                                        {% else %}
+                                            {{ room.name or 'Group Chat' }}
+                                        {% endif %}
+                                    </h6>
+                                    <small class="text-muted">
+                                        {{ room.last_message_at.strftime('%H:%M') if room.last_message_at else '' }}
+                                    </small>
+                                </div>
+                                
+                                <p class="mb-0 text-muted small">
+                                    {% if room.last_message %}
+                                        {{ room.last_message[:30] + '...' if room.last_message|length > 30 else room.last_message }}
+                                    {% else %}
+                                        No messages yet
+                                    {% endif %}
+                                </p>
+                                
+                                {% if room.unread_count is defined and room.unread_count > 0 %}
+                                <span class="badge bg-danger rounded-pill position-absolute">
+                                  {{ room.unread_count }}
+                                </span>
+                              {% endif %}
+                              
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-comments fa-3x text-muted mb-3"></i>
+                        <h6 class="text-muted">No chats yet</h6>
+                        <p class="text-muted small">Start a new conversation</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+   
+    <div class="col-md-8 col-lg-9">
+        <div class="card h-100 fade-in">
+            <div class="card-body d-flex flex-column justify-content-center align-items-center text-center">
+                <i class="fas fa-comments fa-4x text-primary mb-4"></i>
+                <h3 class="mb-3">Welcome to Connect Chat</h3>
+                <p class="text-muted mb-4">
+                    Select a chat from the sidebar to start messaging, or create a new chat to connect with others.
+                </p>
+                <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#newChatModal">
+                    <i class="fas fa-plus me-2"></i>Start New Chat
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="newChatModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus-circle text-primary me-2"></i>Start New Chat
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <form method="POST" action="{{ url_for('create_private_chat') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="target_user_id" class="form-label">Select a user to chat with:</label>
+                        <select class="form-select" id="target_user_id" name="target_user_id" required>
+                            <option value="">Choose a user...</option>
+                            {% for available_user in available_users %}
+                            <option value="{{ available_user.id }}">
+                                {{ available_user.username }} 
+                                <span class="text-muted">({{ available_user.role.title() }})</span>
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    {% if not available_users %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No users available to chat with at the moment.
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" {% if not available_users %}disabled{% endif %}>
+                        <i class="fas fa-comment me-1"></i>Start Chat
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Online Users Card -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card fade-in">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-users text-success me-2"></i>Online Users
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for available_user in available_users %}
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="d-flex align-items-center p-2 border rounded">
+                            <div class="position-relative me-3">
+                                <img src="{{ available_user.avatar_url or <i class="fas fa-plus"></i> }}" 
+                                     alt="User Avatar" class="user-avatar">
+                                <span class="online-indicator {{ 'bg-success' if available_user.is_online else 'bg-secondary' }}"></span>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ available_user.username }}</h6>
+                                <small class="text-muted">{{ available_user.role.title() }}</small>
+                            </div>
+                            <form method="POST" action="{{ url_for('create_private_chat') }}" style="display: inline;">
+                                <input type="hidden" name="target_user_id" value="{{ available_user.id }}">
+                                <button type="submit" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-comment"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                {% if not available_users %}
+                <div class="text-center py-3">
+                    <i class="fas fa-user-slash fa-2x text-muted mb-2"></i>
+                    <p class="text-muted mb-0">No users online right now</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('chatSearch').addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const chatItems = document.querySelectorAll('.chat-room-item');
+        
+        chatItems.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            if (text.includes(searchTerm)) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+    
+    setInterval(() => {
+        
+        const indicators = document.querySelectorAll('.online-indicator');
+        indicators.forEach(indicator => {
+           
+        });
+    }, 30000);
+</script>
+{% endblock %}

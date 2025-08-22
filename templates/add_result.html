@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Add Result{% endblock %}
+{% block heading %}Add Student Result{% endblock %}
+
+{% block header_buttons %}
+<a href="{{ url_for('teacher_subjects') }}" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
+    <i class="fas fa-arrow-left fa-sm text-white-50"></i> Back to Subjects
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Result Information</h6>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="resultForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="subjectSelect" class="form-label">Subject</label>
+                            <select class="form-select" id="subjectSelect" name="subject_id" required>
+                                <option value="" selected disabled>Select a subject</option>
+                                {% for subject in subjects %}
+                                <option value="{{ subject.id }}">{{ subject.subject_name }} ({{ subject.subject_code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="studentSelect" class="form-label">Student</label>
+                            <select class="form-select" id="studentSelect" name="student_id">
+                                <option value="" selected disabled>Select a student</option>
+                                {% for student in students %}
+                                <option value="{{ student.id }}">{{ student.full_name }} ({{ student.student_id }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="marksInput" class="form-label">Marks (0-100)</label>
+                            <input type="number" class="form-control" id="marksInput" 
+                                   name="marks" min="0" max="100" step="0.01" 
+                                   placeholder="Enter marks" required>
+                            <div class="form-text">Enter value between 0 and 100</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Calculated Grade</label>
+                            <div class="card bg-light p-2">
+                                <h5 class="mb-0" id="gradeDisplay">-</h5>
+                                <small class="text-muted" id="gpaDisplay">GPA: -</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="commentsTextarea" class="form-label">Comments</label>
+                        <textarea class="form-control" id="commentsTextarea" 
+                                  name="comments" rows="3" 
+                                  placeholder="Additional comments about the result"></textarea>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="reset" class="btn btn-secondary">Reset</button>
+                        <button type="submit" class="btn btn-primary">Submit Result</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">Grading System</h6>
+                <i class="fas fa-info-circle"></i>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Marks Range</th>
+                                <th>Grade</th>
+                                <th>GPA</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>90-100</td>
+                                <td>A+</td>
+                                <td>4.0</td>
+                            </tr>
+                            <tr>
+                                <td>80-89</td>
+                                <td>A</td>
+                                <td>4.0</td>
+                            </tr>
+                            <tr>
+                                <td>75-79</td>
+                                <td>B+</td>
+                                <td>3.5</td>
+                            </tr>
+                            <tr>
+                                <td>70-74</td>
+                                <td>B</td>
+                                <td>3.0</td>
+                            </tr>
+                            <tr>
+                                <td>65-69</td>
+                                <td>C+</td>
+                                <td>2.5</td>
+                            </tr>
+                            <tr>
+                                <td>60-64</td>
+                                <td>C</td>
+                                <td>2.0</td>
+                            </tr>
+                            <tr>
+                                <td>Below 60</td>
+                                <td>F</td>
+                                <td>0.0</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-exclamation-circle me-1"></i>
+                    All results require academic approval before finalization.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Real-time grade calculation
+    document.getElementById('marksInput').addEventListener('input', function() {
+        const marks = parseFloat(this.value) || 0;
+        const gradeDisplay = document.getElementById('gradeDisplay');
+        const gpaDisplay = document.getElementById('gpaDisplay');
+        
+        if (marks >= 90) {
+            gradeDisplay.textContent = 'A+';
+            gpaDisplay.textContent = 'GPA: 4.0';
+        } else if (marks >= 80) {
+            gradeDisplay.textContent = 'A';
+            gpaDisplay.textContent = 'GPA: 4.0';
+        } else if (marks >= 75) {
+            gradeDisplay.textContent = 'B+';
+            gpaDisplay.textContent = 'GPA: 3.5';
+        } else if (marks >= 70) {
+            gradeDisplay.textContent = 'B';
+            gpaDisplay.textContent = 'GPA: 3.0';
+        } else if (marks >= 65) {
+            gradeDisplay.textContent = 'C+';
+            gpaDisplay.textContent = 'GPA: 2.5';
+        } else if (marks >= 60) {
+            gradeDisplay.textContent = 'C';
+            gpaDisplay.textContent = 'GPA: 2.0';
+        } else if (marks > 0) {
+            gradeDisplay.textContent = 'F';
+            gpaDisplay.textContent = 'GPA: 0.0';
+        } else {
+            gradeDisplay.textContent = '-';
+            gpaDisplay.textContent = 'GPA: -';
+        }
+    });
+
+    // Form validation
+    document.getElementById('resultForm').addEventListener('submit', function(e) {
+        const marks = parseFloat(document.getElementById('marksInput').value);
+        
+        if (marks < 0 || marks > 100) {
+            e.preventDefault();
+            alert('Marks must be between 0 and 100');
+        }
+    });
+</script>
+{% endblock %}

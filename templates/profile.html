@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %} JRIIT Results{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <img src="{{ url_for('static', filename='uploads/profiles/' + user.profile_picture) }}" 
+                         alt="Profile Picture" class="profile-img mb-3" 
+                         onerror="this.src='{{ url_for('static', filename='uploads/profiles/default.png') }}'">
+                    
+                    <h5>{{ user.username }}</h5>
+                    <p class="text-muted">{{ user.role.title() }}</p>
+                    
+                    <form method="POST" action="{{ url_for('upload_profile_picture') }}" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <input type="file" class="form-control" name="profile_picture" accept="image/*">
+                        </div>
+                        <button type="submit" class="btn btn-outline-primary btn-sm">Update Photo</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-user me-2"></i>Profile Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-sm-3"><strong>Username:</strong></div>
+                        <div class="col-sm-9">{{ user.username }}</div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-sm-3"><strong>Role:</strong></div>
+                        <div class="col-sm-9"><span class="badge bg-primary">{{ user.role.title() }}</span></div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-sm-3"><strong>Created:</strong></div>
+                        <div class="col-sm-9">{{ user.created_at.strftime('%B %d, %Y') }}</div>
+                    </div>
+                    
+                    {% if role_profile %}
+                    <hr>
+                    <h6 class="text-primary">{{ user.role.title() }} Details</h6>
+                    
+                    {% if user.role == 'student' %}
+                    <div class="row">
+                        <div class="col-sm-3"><strong>Full Name:</strong></div>
+                        <div class="col-sm-9">{{ role_profile.full_name }}</div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-sm-3"><strong>Roll Number:</strong></div>
+                        <div class="col-sm-9">{{ role_profile.roll_number }}</div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-sm-3"><strong>Course:</strong></div>
+                        <div class="col-sm-9">{{ role_profile.course }}</div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-sm-3"><strong>Semester:</strong></div>
+                        <div class="col-sm-9">{{ role_profile.semester }}</div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-sm-3"><strong>Status:</strong></div>
+                        <div class="col-sm-9">
+                            <span class="badge bg-{{ 'success' if role_profile.status == 'approved' else 'warning' if role_profile.status == 'pending' else 'danger' }}">
+                                {{ role_profile.status.title() }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if user.role in ['teacher', 'academic'] %}
+                    <div class="row">
+                        <div class="col-sm-3"><strong>Full Name:</strong></div>
+                        <div class="col-sm-9">{{ role_profile.full_name }}</div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-sm-3"><strong>Department:</strong></div>
+                        <div class="col-sm-9">{{ role_profile.department }}</div>
+                    </div>
+                    
+                    {% if user.role == 'teacher' and role_profile.phone %}
+                    <hr>
+                    <div class="row">
+                        <div class="col-sm-3"><strong>Phone:</strong></div>
+                        <div class="col-sm-9">{{ role_profile.phone }}</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if user.role == 'teacher' and role_profile.email %}
+                    <hr>
+                    <div class="row">
+                        <div class="col-sm-3"><strong>Email:</strong></div>
+                        <div class="col-sm-9">{{ role_profile.email }}</div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

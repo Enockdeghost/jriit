@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JRIIT Results Management System - All Templates</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --dark-color: #34495e;
+            --light-color: #ecf0f1;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            background: linear-gradient(180deg, var(--primary-color) 0%, var(--dark-color) 100%);
+            min-height: 100vh;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+
+        .sidebar .nav-link {
+            color: rgba(255,255,255,0.8);
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin: 5px 10px;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .main-content {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin: 20px;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .header-section {
+            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+            color: white;
+            padding: 20px 30px;
+            border-radius: 15px 15px 0 0;
+        }
+
+        .stats-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border-left: 4px solid var(--secondary-color);
+        }
+
+        .stats-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+        }
+
+        .stats-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+        }
+
+        .btn-custom {
+            border-radius: 25px;
+            padding: 10px 25px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .table-custom {
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .table-custom thead {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+        }
+
+        .modal-custom .modal-content {
+            border-radius: 15px;
+            border: none;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+        }
+
+        .form-control-custom {
+            border-radius: 10px;
+            border: 2px solid #e1e8ed;
+            padding: 12px 15px;
+            transition: all 0.3s ease;
+        }
+
+        .form-control-custom:focus {
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+        }
+
+        .badge-status {
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+        }
+
+        .alert-custom {
+            border-radius: 15px;
+            border: none;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+        }
+
+        .activity-item {
+            padding: 15px;
+            border-left: 3px solid var(--secondary-color);
+            margin-bottom: 10px;
+            background: rgba(52, 152, 219, 0.05);
+            border-radius: 0 10px 10px 0;
+        }
+
+        .profile-img {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 4px solid white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: -250px;
+                z-index: 1000;
+                transition: left 0.3s ease;
+            }
+            
+            .sidebar.show {
+                left: 0;
+            }
+            
+            .main-content {
+                margin: 10px;
+            }
+        }
+
+        .fade-in {
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .template-section {
+            background: white;
+            margin: 30px 0;
+            padding: 30px;
+            border-radius: 15px;
+            border-left: 5px solid var(--secondary-color);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .template-title {
+            color: var(--primary-color);
+            font-weight: 700;
+            margin-bottom: 20px;
+            padding: 15px 0;
+            border-bottom: 2px solid var(--light-color);
+        }
+
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .template-note {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <div class="text-center text-white mb-4">
+                    <h1 class="display-4 fw-bold animate__animated animate__fadeInDown">
+                        <i class="fas fa-graduation-cap me-3"></i>
+                        JRIIT Results Management System
+                    </h1>
+                    <p class="lead animate__animated animate__fadeInUp">Complete Professional Frontend Templates</p>
+                </div>
+
+                <div class="template-section animate__animated animate__fadeInUp">
+                    <h2 class="template-title">
+                        <i class="fas fa-user-shield me-2"></i>
+                        Admin Dashboard Template
+                    </h2>
+                    <div class="template-note">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Place this in: templates/admin_dashboard.html
+                    </div>
+                    <div class="code-block">
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3 col-lg-2 sidebar">
+            <div class="p-3">
+                <div class="text-center mb-4">
+                    <img src="{{ url_for('static', filename='uploads/profiles/' + session.get('profile_picture', 'default.png')) }}" 
+                         class="profile-img" alt="Profile">
+                    <h5 class="text-white mt-2">{{ session.username }}</h5>
+                    <small class="text-light">Administrator</small>
+                </div>
+                <nav class="nav flex-column">
+                    <a class="nav-link active" href="{{ url_for('admin_dashboard') }}">
+                        <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                    </a>
+                    <a class="nav-link" href="{{ url_for('create_user') }}">
+                        <i class="fas fa-user-plus me-2"></i> Create User
+                    </a>
+                    <a class="nav-link" href="{{ url_for('manage_users') }}">
+                        <i class="fas fa-users me-2"></i> Manage Users
+                    </a>
+                    <a class="nav-link" href="{{ url_for('reports') }}">
+                        <i class="fas fa-chart-bar me-2"></i> Reports
+                    </a>
+                    <a class="nav-link" href="{{ url_for('profile') }}">
+                        <i class="fas fa-user me-2"></i> Profile
+                    </a>
+                    <a class="nav-link" href="{{ url_for('logout') }}">
+                        <i class="fas fa-sign-out-alt me-2"></i> Logout
+                    </a>
+                </nav>
+            </div>
+        </div>
+
+        <div class="col-md-9 col-lg-10">
+            <div class="main-content">
+                <div class="header-section">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h2 class="mb-0">
+                                <i class="fas fa-tachometer-alt me-2"></i>
+                                Admin Dashboard
+                            </h2>
+                            <p class="mb-0 opacity-75">Welcome back, {{ session.username }}!</p>
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-light btn-custom" onclick="refreshDashboard()">
+                                <i class="fas fa-sync-alt me-2"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4">
+                    <div class="row mb-4">
+                        <div class="col-xl-3 col-md-6">
+                            <div class="stats-card fade-in">
+                                <div class="row align-items-center">
+                                    <div class="col">
+                                        <div class="stats-icon bg-primary">
+                                            <i class="fas fa-users"></i>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="text-end">
+                                            <h3 class="text-primary mb-1">{{ total_users }}</h3>
+                                            <p class="text-muted mb-0">Total Users</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-md-6">
+                            <div class="stats-card fade-in">
+                                <div class="row align-items-center">
+                                    <div class="col">
+                                        <div class="stats-icon bg-warning">
+                                            <i class="fas fa-clock"></i>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="text-end">
+                                            <h3 class="text-warning mb-1">{{ pending_students }}</h3>
+                                            <p class="text-muted mb-0">Pending Students</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-md-6">
+                            <div class="stats-card fade-in">
+                                <div class="row align-items-center">
+                                    <div class="col">
+                                        <div class="stats-icon bg-success">
+                                            <i class="fas fa-chalkboard-teacher"></i>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="text-end">
+                                            <h3 class="text-success mb-1">{{ total_teachers }}</h3>
+                                            <p class="text-muted mb-0">Teachers</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-md-6">
+                            <div class="stats-card fade-in">
+                                <div class="row align-items-center">
+                                    <div class="col">
+                                        <div class="stats-icon bg-info">
+                                            <i class="fas fa-book"></i>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="text-end">
+                                            <h3 class="text-info mb-1">{{ total_subjects }}</h3>
+                                            <p class="text-muted mb-0">Subjects</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if pending_students_list %}
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header bg-warning text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        Pending Student Approvals ({{ pending_students_list|length }})
+                                    </h5>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover mb-0">
+                                            <thead class="bg-light">
+                                                <tr>
+                                                    <th>Roll Number</th>
+                                                    <th>Full Name</th>
+                                                    <th>Course</th>
+                                                    <th>Semester</th>
+                                                    <th>Registration Date</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for student in pending_students_list %}
+                                                <tr>
+                                                    <td><strong>{{ student.roll_number }}</strong></td>
+                                                    <td>{{ student.full_name }}</td>
+                                                    <td>{{ student.course }}</td>
+                                                    <td>
+                                                        <span class="badge bg-info">Semester {{ student.semester }}</span>
+                                                    </td>
+                                                    <td>{{ student.user.created_at.strftime('%Y-%m-%d') }}</td>
+                                                    <td>
+                                                        <button class="btn btn-success btn-sm me-2" 
+                                                                onclick="approveStudent({{ student.id }})">
+                                                            <i class="fas fa-check me-1"></i> Approve
+                                                        </button>
+                                                        <button class="btn btn-danger btn-sm" 
+                                                                onclick="rejectStudent({{ student.id }})">
+                                                            <i class="fas fa-times me-1"></i> Reject
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <div class="col-lg-8">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-chart-pie me-2"></i>
+                                        Course Statistics
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        {% for course, stats in courses_stats.items() %}
+                                        <div class="col-md-6 mb-3">
+                                            <div class="border rounded p-3">
+                                                <h6 class="text-primary">{{ course }}</h6>
+                                                <div class="d-flex justify-content-between">
+                                                    <small class="text-muted">Students: {{ stats.students }}</small>
+                                                    <small class="text-muted">Subjects: {{ stats.subjects }}</small>
+                                                </div>
+                                                <div class="progress mt-2" style="height: 5px;">
+                                                    <div class="progress-bar" role="progressbar" 
+                                                         style="width: {{ (stats.students / 100 * 100) if stats.students < 100 else 100 }}%"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-history me-2"></i>
+                                        Recent Activities
+                                    </h5>
+                                </div>
+                                <div class="card-body p-2" style="max-height: 400px; overflow-y: auto;">
+                                    {% for activity in recent_activities %}
+                                    <div class="activity-item">
+                                        <div class="d-flex justify-content-between">
+                                            <strong class="text-primary">{{ activity.action }}</strong>
+                                            <small class="text-muted">{{ activity.timestamp.strftime('%H:%M') }}</small>
+                                        </div>
+                                        <p class="mb-1 small">{{ activity.details or 'No details available' }}</p>
+                                        <small class="text-muted">by {{ activity.user.username }}</small>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header bg-secondary text-white">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-bolt me-2"></i>
+                                        Quick Actions
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3 mb-3">
+                                            <a href="{{ url_for('create_user') }}" class="btn btn-primary btn-custom w-100">
+                                                <i class="fas fa-user-plus me-2"></i>
+                                                Create New User
+                                            </a>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <a href="{{ url_for('manage_users') }}" class="btn btn-info btn-custom w-100">
+                                                <i class="fas fa-users-cog me-2"></i>
+                                                Manage Users
+                                            </a>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <a href="{{ url_for('reports') }}" class="btn btn-success btn-custom w-100">
+                                                <i class="fas fa-chart-line me-2"></i>
+                                                View Reports
+                                            </a>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <button class="btn btn-warning btn-custom w-100" onclick="exportData()">
+                                                <i class="fas fa-download me-2"></i>
+                                                Export Data
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Approval Confirmation Modal -->
+<div class="modal fade" id="approvalModal" tabindex="-1">
+    <div class="modal-dialog modal-custom">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Confirm Student Approval
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to approve this student? This action will grant them access to the system.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="confirmApproval">
+                    <i class="fas fa-check me-2"></i>
+                    Approve Student
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="rejectionModal" tabindex="-1">
+    <div class="modal-dialog modal-custom">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-times-circle me-2"></i>
+                    Confirm Student Rejection
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to reject this student? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmRejection">
+                    <i class="fas fa-times me-2"></i>
+                    Reject Student
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedStudentId = null;
+
+function approveStudent(studentId) {
+    selectedStudentId = studentId;
+    const modal = new bootstrap.Modal(document.getElementById('approvalModal'));
+    modal.show();
+}
+
+function rejectStudent(studentId) {
+    selectedStudentId = studentId;
+    const modal = new bootstrap.Modal(document.getElementById('rejectionModal'));
+    modal.show();
+}
+
+document.getElementById('confirmApproval').addEventListener('click', function() {
+    if (selectedStudentId) {
+        window.location.href = `/admin/approve-student/${selectedStudentId}`;
+    }
+});
+
+document.getElementById('confirmRejection').addEventListener('click', function() {
+    if (selectedStudentId) {
+        window.location.href = `/admin/reject-student/${selectedStudentId}`;
+    }
+});
+
+function refreshDashboard() {
+    location.reload();
+}
+
+function exportData() {
+    alert('Export functionality will be implemented here');
+}
+
+setInterval(function() {
+    refreshDashboard();
+}, 300000);
+</script>
+
+{% endblock %}

@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications - Your App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #2d3748;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: white;
+            padding: 1rem 0;
+            border-bottom: 1px solid #e2e8f0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2b6cb0;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .nav-links a {
+            color: #4a5568;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: #2b6cb0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .page-title {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2d3748;
+        }
+
+        .notification-count {
+            background: #e53e3e;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: #2b6cb0;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2c5282;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .notifications-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .notification-item {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .notification-item:hover {
+            background: #f7fafc;
+        }
+
+        .notification-item.unread {
+            background: #ebf8ff;
+            border-left: 4px solid #2b6cb0;
+        }
+
+        .notification-item:last-child {
+            border-bottom: none;
+        }
+
+        .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.5rem;
+        }
+
+        .notification-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 0.25rem;
+        }
+
+        .notification-type {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .notification-type.calendar {
+            background: #e6fffa;
+            color: #234e52;
+        }
+
+        .notification-type.announcement {
+            background: #fef5e7;
+            color: #744210;
+        }
+
+        .notification-type.general {
+            background: #f0f4f8;
+            color: #2d3748;
+        }
+
+        .notification-message {
+            color: #4a5568;
+            margin-bottom: 1rem;
+        }
+
+        .notification-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.875rem;
+            color: #718096;
+        }
+
+        .notification-time {
+            font-weight: 500;
+        }
+
+        .mark-read-btn {
+            background: none;
+            border: none;
+            color: #2b6cb0;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .mark-read-btn:hover {
+            background: #e6f3ff;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #718096;
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #4a5568;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .pagination a {
+            padding: 0.5rem 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            text-decoration: none;
+            color: #4a5568;
+            transition: all 0.2s;
+        }
+
+        .pagination a:hover {
+            background: #f7fafc;
+            border-color: #cbd5e0;
+        }
+
+        .pagination a.active {
+            background: #2b6cb0;
+            color: white;
+            border-color: #2b6cb0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #718096;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .alert-success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #68d391;
+        }
+
+        .alert-error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #f56565;
+        }
+
+        @media (max-width: 768px) {
+            .page-header {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: flex-start;
+            }
+
+            .actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .notification-header {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .notification-meta {
+                flex-direction: column;
+                gap: 0.5rem;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <a href="{{ url_for('dashboard') }}" class="logo">Your App</a>
+            <nav class="nav-links">
+                <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('notifications') }}">Notifications</a>
+                <a href="{{ url_for('profile') }}">Profile</a>
+                <a href="{{ url_for('logout') }}">Logout</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">
+                    Notifications
+                    {% if unread_count > 0 %}
+                        <span class="notification-count">{{ unread_count }}</span>
+                    {% endif %}
+                </h1>
+            </div>
+            <div class="actions">
+                <button class="btn btn-secondary" onclick="markAllRead()">Mark All Read</button>
+                <button class="btn btn-primary" onclick="refreshNotifications()">Refresh</button>
+            </div>
+        </div>
+
+        <div id="alert-container"></div>
+
+        <div class="notifications-container">
+            {% if notifications.items %}
+                {% for notification in notifications.items %}
+                    <div class="notification-item {{ 'unread' if not notification.is_read else '' }}" 
+                         data-notification-id="{{ notification.id }}">
+                        <div class="notification-header">
+                            <div>
+                                <h3 class="notification-title">{{ notification.title }}</h3>
+                                <span class="notification-type {{ notification.notification_type }}">
+                                    {{ notification.notification_type }}
+                                </span>
+                            </div>
+                            {% if not notification.is_read %}
+                                <button class="mark-read-btn" onclick="markAsRead({{ notification.id }})">
+                                    Mark as Read
+                                </button>
+                            {% endif %}
+                        </div>
+                        
+                        <p class="notification-message">{{ notification.message }}</p>
+                        
+                        <div class="notification-meta">
+                            <span class="notification-time">
+                                {{ notification.created_at.strftime('%B %d, %Y at %I:%M %p') }}
+                            </span>
+                            {% if notification.reference_id %}
+                                <span>ID: {{ notification.reference_id }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">🔔</div>
+                    <h2 class="empty-state-title">No notifications</h2>
+                    <p>You're all caught up! Check back later for new notifications.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        {% if notifications.pages > 1 %}
+            <div class="pagination">
+                {% if notifications.has_prev %}
+                    <a href="{{ url_for('notifications', page=notifications.prev_num) }}">&laquo; Previous</a>
+                {% endif %}
+                
+                {% for page_num in notifications.iter_pages() %}
+                    {% if page_num %}
+                        {% if page_num != notifications.page %}
+                            <a href="{{ url_for('notifications', page=page_num) }}">{{ page_num }}</a>
+                        {% else %}
+                            <a href="#" class="active">{{ page_num }}</a>
+                        {% endif %}
+                    {% else %}
+                        <span>...</span>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if notifications.has_next %}
+                    <a href="{{ url_for('notifications', page=notifications.next_num) }}">Next &raquo;</a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        function showAlert(message, type = 'success') {
+            const alertContainer = document.getElementById('alert-container');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alertContainer.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 3000);
+        }
+
+        function markAsRead(notificationId) {
+            fetch(`/api/notifications/${notificationId}/read`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const notificationItem = document.querySelector(`[data-notification-id="${notificationId}"]`);
+                    notificationItem.classList.remove('unread');
+                    const markReadBtn = notificationItem.querySelector('.mark-read-btn');
+                    if (markReadBtn) {
+                        markReadBtn.remove();
+                    }
+                    showAlert('Notification marked as read');
+                    updateNotificationCount();
+                } else {
+                    showAlert('Error marking notification as read', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('Network error occurred', 'error');
+            });
+        }
+
+        function markAllRead() {
+            fetch('/api/notifications/read-all', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.querySelectorAll('.notification-item.unread').forEach(item => {
+                        item.classList.remove('unread');
+                        const markReadBtn = item.querySelector('.mark-read-btn');
+                        if (markReadBtn) {
+                            markReadBtn.remove();
+                        }
+                    });
+                    const countBadge = document.querySelector('.notification-count');
+                    if (countBadge) {
+                        countBadge.remove();
+                    }
+                    showAlert('All notifications marked as read');
+                } else {
+                    showAlert('Error marking all notifications as read', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('Network error occurred', 'error');
+            });
+        }
+
+        function refreshNotifications() {
+            window.location.reload();
+        }
+
+        function updateNotificationCount() {
+            fetch('/api/notifications/count')
+            .then(response => response.json())
+            .then(data => {
+                const countBadge = document.querySelector('.notification-count');
+                if (data.count > 0) {
+                    if (countBadge) {
+                        countBadge.textContent = data.count;
+                    } else {
+                        const pageTitle = document.querySelector('.page-title');
+                        const badge = document.createElement('span');
+                        badge.className = 'notification-count';
+                        badge.textContent = data.count;
+                        pageTitle.appendChild(badge);
+                    }
+                } else if (countBadge) {
+                    countBadge.remove();
+                }
+            })
+            .catch(error => {
+                console.error('Error updating notification count:', error);
+            });
+        }
+
+        // Auto-refresh notification count every 30 seconds
+        setInterval(updateNotificationCount, 30000);
+    </script>
+</body>
+</html>

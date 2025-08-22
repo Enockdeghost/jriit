@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Add New Subject{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-book me-2"></i>Add New Subject
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" action="{{ url_for('add_subject') }}" class="needs-validation" novalidate>
+                        <div class="row g-3">
+                            <!-- Subject Code -->
+                            <div class="col-md-6">
+                                <label for="subject_code" class="form-label">Subject Code <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="subject_code" name="subject_code" 
+                                       pattern="[A-Z0-9]{3,10}" title="Subject code must be uppercase letters and numbers (3-10 characters)"
+                                       required>
+                                <div class="invalid-feedback">
+                                    Please provide a valid subject code (uppercase letters and numbers).
+                                </div>
+                            </div>
+
+                            <!-- Subject Name -->
+                            <div class="col-md-6">
+                                <label for="subject_name" class="form-label">Subject Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="subject_name" name="subject_name" required>
+                                <div class="invalid-feedback">
+                                    Please provide a subject name.
+                                </div>
+                            </div>
+
+                            <!-- Semester -->
+                            <div class="col-md-4">
+                                <label for="semester" class="form-label">Semester <span class="text-danger">*</span></label>
+                                <select class="form-select" id="semester" name="semester" required>
+                                    <option value="" selected disabled>Select semester</option>
+                                    {% for i in range(1,9) %}
+                                        <option value="{{ i }}">Semester {{ i }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="invalid-feedback">
+                                    Please select a semester.
+                                </div>
+                            </div>
+
+                            <!-- Course -->
+                            <div class="col-md-4">
+                                <label for="course" class="form-label">Course <span class="text-danger">*</span></label>
+                                <select class="form-select" id="course" name="course" required>
+                                    <option value="" selected disabled>Select course</option>
+                                    {% for course in courses %}
+                                        <option value="{{ course }}">{{ course }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="invalid-feedback">
+                                    Please select a course.
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="credits" class="form-label">Credits</label>
+                                <input type="number" class="form-control" id="credits" name="credits" 
+                                       min="1" max="10" value="3">
+                                <div class="invalid-feedback">
+                                    Credits must be between 1 and 10.
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <label for="teacher_id" class="form-label">Assign Teacher</label>
+                                <select class="form-select" id="teacher_id" name="teacher_id">
+                                    <option value="" selected>Unassigned</option>
+                                    {% for teacher in teachers %}
+                                        <option value="{{ teacher.id }}">{{ teacher.full_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-12 mt-4">
+                                <button type="submit" class="btn btn-primary px-4">
+                                    <i class="fas fa-save me-2"></i>Save Subject
+                                </button>
+                                <a href="{{ url_for('academic_subjects') }}" class="btn btn-outline-secondary ms-2">
+                                    <i class="fas fa-times me-2"></i>Cancel
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Form validation script -->
+<script>
+(function () {
+    'use strict'
+
+    // Fetch all the forms we want to apply custom Bootstrap validation styles to
+    var forms = document.querySelectorAll('.needs-validation')
+
+    // Loop over them and prevent submission
+    Array.prototype.slice.call(forms)
+        .forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+
+                form.classList.add('was-validated')
+            }, false)
+        })
+})()
+</script>
+{% endblock %}

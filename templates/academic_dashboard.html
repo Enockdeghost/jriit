@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Academic Dashboard</h1>
+        <a href="{{ url_for('academic_results') }}" class="d-none d-sm-inline-block btn btn-primary shadow-sm">
+            <i class="bi bi-clipboard-data me-1"></i> Review Results
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Pending Results</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ pending_results }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-clock-history fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Approved Results -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Approved Results</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ approved_results }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rejected Results -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Rejected Results</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ rejected_results }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-x-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Unassigned Subjects</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ unassigned_subjects }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-journal-x fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-warning">
+                        <i class="bi bi-exclamation-triangle me-1"></i> Recent Pending Results
+                    </h6>
+                    <a href="{{ url_for('academic_results') }}" class="btn btn-sm btn-primary">
+                        View All
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if recent_pending %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Subject</th>
+                                    <th>Teacher</th>
+                                    <th>Student</th>
+                                    <th>Submitted At</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for result in recent_pending %}
+                                <tr>
+                                    <td>
+                                        <div>{{ result.subject.subject_name }}</div>
+                                        <small class="text-muted">{{ result.subject.subject_code }}</small>
+                                    </td>
+                                    <td>{{ result.subject.teacher.full_name if result.subject.teacher else 'Unassigned' }}</td>
+                                    <td>
+                                        <div>{{ result.student.full_name }}</div>
+                                        <small class="text-muted">{{ result.student.roll_number }}</small>
+                                    </td>
+                                    <td>{{ result.submitted_at.strftime('%b %d, %H:%M') }}</td>
+                                    <td>
+                                        <a href="{{ url_for('review_result', result_id=result.id) }}" 
+                                           class="btn btn-sm btn-primary">
+                                            <i class="bi bi-eye me-1"></i> Review
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-check-circle display-4 text-success"></i>
+                        <p class="mt-3">No pending results for review</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,283 @@
+{% extends 'base.html' %}
+
+{% block title %}Course Performance Report{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Course Performance Report</h1>
+        <div>
+            <button class="btn btn-primary" onclick="window.print()">
+                <i class="fas fa-print me-1"></i> Print Report
+            </button>
+            <a href="{{ url_for('reports') }}" class="btn btn-outline-secondary ms-2">
+                <i class="fas fa-arrow-left me-1"></i> Back to Reports
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-light">
+            <h2 class="h5 mb-0">Report Filters</h2>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('course_performance_report') }}">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Select Course</label>
+                        <select class="form-select" name="course">
+                            <option value="">All Courses</option>
+                            {% for course in COURSES %}
+                            <option value="{{ course }}" {% if request.GET.get('course') == course %}selected{% endif %}>
+                                {{ course }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Semester</label>
+                        <select class="form-select" name="semester">
+                            <option value="">All Semesters</option>
+                            {% for i in range(1,7) %}
+                            <option value="{{ i }}" {% if request.args.get('semester') == i|string %}selected{% endif %}>
+                                Semester {{ i }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end mb-3">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-filter me-1"></i> Apply Filters
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-light">
+            <h2 class="h5 mb-0">Performance Overview</h2>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Course</th>
+                            <th class="text-center">Students</th>
+                            <th class="text-center">Results</th>
+                            <th class="text-center">Avg. Marks</th>
+                            <th class="text-center">Top Grade</th>
+                            <th class="text-center">Pass Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for course, stats in course_stats.items() %}
+                        <tr>
+                            <td>{{ course }}</td>
+                            <td class="text-center">{{ stats.total_students }}</td>
+                            <td class="text-center">{{ stats.total_results }}</td>
+                            <td class="text-center">{{ stats.average_marks }}</td>
+                            <td class="text-center">
+                                {% set grades = stats.grade_distribution.keys()|list %}
+                                {% if grades %}
+                                    {{ grades|sort|last }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if stats.grade_distribution and stats.total_results > 0 %}
+                                    {% set passed = stats.total_results - stats.grade_distribution.get('F', 0) - stats.grade_distribution.get('D', 0) %}
+                                    {{ ((passed / stats.total_results) * 100)|round(1) }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        <!-- Summary Row -->
+                        {% set total_students = 0 %}
+                        {% set total_results = 0 %}
+                        {% set total_weighted_marks = 0.0 %}
+                        {% for stats in course_stats.values() %}
+                            {% set total_students = total_students + stats.total_students %}
+                            {% set total_results = total_results + stats.total_results %}
+                            {% set total_weighted_marks = total_weighted_marks + (stats.average_marks * stats.total_results) %}
+                        {% endfor %}
+                        <tr class="table-secondary fw-bold">
+                            <td>Total</td>
+                            <td class="text-center">{{ total_students }}</td>
+                            <td class="text-center">{{ total_results }}</td>
+                            <td class="text-center">
+                                {% if total_results > 0 %}
+                                    {{ (total_weighted_marks / total_results)|round(2) }}
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grade Distribution by Course -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-light">
+            <h2 class="h5 mb-0">Grade Distribution</h2>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for course, stats in course_stats.items() %}
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100 border-0 shadow">
+                        <div class="card-header">
+                            <h3 class="h6 mb-0">{{ course }} - Grade Distribution</h3>
+                        </div>
+                        <div class="card-body">
+                            {% if stats.grade_distribution %}
+                            <div class="d-flex justify-content-center">
+                                <div style="width: 100%; max-width: 400px;">
+                                    <canvas id="chart-{{ loop.index }}"></canvas>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-chart-pie fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No grade data available</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Trends -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h2 class="h5 mb-0">Performance Trends</h2>
+        </div>
+        <div class="card-body">
+            <div class="d-flex justify-content-center">
+                <div style="width: 100%; max-width: 800px; height: 400px;">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Include Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Initialize grade distribution charts
+{% for course, stats in course_stats.items() %}
+{% if stats.grade_distribution %}
+const ctx{{ loop.index }} = document.getElementById('chart-{{ loop.index }}').getContext('2d');
+const chart{{ loop.index }} = new Chart(ctx{{ loop.index }}, {
+    type: 'pie',
+    data: {
+        labels: [{% for grade, count in stats.grade_distribution.items() %}'{{ grade }}'{% if not loop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+            data: [{% for grade, count in stats.grade_distribution.items() %}{{ count }}{% if not loop.last %},{% endif %}{% endfor %}],
+            backgroundColor: [
+                '#4CAF50', // A+
+                '#8BC34A', // A
+                '#CDDC39', // A-
+                '#FFEB3B', // B+
+                '#FFC107', // B
+                '#FF9800', // B-
+                '#FF5722', // C+
+                '#795548', // C
+                '#9E9E9E', // C-
+                '#607D8B', // D+
+                '#2196F3', // D
+                '#F44336'  // F
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            title: {
+                display: true,
+                text: '{{ course }}'
+            },
+            legend: {
+                position: 'right'
+            }
+        }
+    }
+});
+{% endif %}
+{% endfor %}
+
+const trendCtx = document.getElementById('trendChart').getContext('2d');
+const trendChart = new Chart(trendCtx, {
+    type: 'line',
+    data: {
+        labels: [{% for course in course_stats.keys() %}'{{ course }}'{% if not loop.last %},{% endif %}{% endfor %}],
+        datasets: [{
+            label: 'Average Marks',
+            data: [{% for stats in course_stats.values() %}{{ stats.average_marks }}{% if not loop.last %},{% endif %}{% endfor %}],
+            borderColor: '#2196F3',
+            backgroundColor: 'rgba(33, 150, 243, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4
+        }, {
+            label: 'Pass Rate (%)',
+            data: [{% for stats in course_stats.values() %}
+                {% if stats.grade_distribution and stats.total_results > 0 %}
+                    {% set passed = stats.total_results - stats.grade_distribution.get('F', 0) - stats.grade_distribution.get('D', 0) %}
+                    {{ ((passed / stats.total_results) * 100)|round(1) }}
+                {% else %}
+                    0
+                {% endif %}
+            {% if not loop.last %},{% endif %}{% endfor %}],
+            borderColor: '#4CAF50',
+            backgroundColor: 'rgba(76, 175, 80, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4,
+            yAxisID: 'y1'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: false,
+                title: {
+                    display: true,
+                    text: 'Average Marks'
+                }
+            },
+            y1: {
+                position: 'right',
+                beginAtZero: true,
+                max: 100,
+                title: {
+                    display: true,
+                    text: 'Pass Rate (%)'
+                },
+                grid: {
+                    drawOnChartArea: false
+                }
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero-section bg-primary text-white rounded-3 p-5 mb-5">
+    <div class="row align-items-center">
+        <div class="col-md-6">
+            <h1 class="display-4 fw-bold">Academic Result Management System</h1>
+            <p class="lead">Streamline your institution's result processing with our comprehensive platform designed for administrators, teachers, and students.</p>
+            {% if 'user_id' not in session %}
+            <div class="d-grid gap-2 d-md-flex">
+                <a href="/login" class="btn btn-light btn-lg px-4 me-md-2">Login</a>
+                <a href="/student/register" class="btn btn-outline-light btn-lg px-4">Register as Student</a>
+            </div>
+            {% else %}
+            <a href="/dashboard" class="btn btn-light btn-lg px-4">Go to Dashboard</a>
+            {% endif %}
+        </div>
+        <div class="col-md-6 text-center">
+            <img src="https://via.placeholder.com/500x300" alt="Education Illustration" class="img-fluid rounded-3 shadow">
+        </div>
+    </div>
+</div>
+
+<div class="row mb-5">
+    <div class="col-md-4 mb-4">
+        <div class="stat-card h-100">
+            <i class="fas fa-users text-primary"></i>
+            <h3>Student Management</h3>
+            <p>Manage student profiles, registrations, and academic progress efficiently.</p>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="stat-card h-100">
+            <i class="fas fa-chalkboard-teacher text-info"></i>
+            <h3>Teacher Portal</h3>
+            <p>Submit and manage student results with an intuitive interface.</p>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="stat-card h-100">
+            <i class="fas fa-chart-line text-success"></i>
+            <h3>Analytics & Reports</h3>
+            <p>Generate insightful reports on academic performance and trends.</p>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card dashboard-card">
+            <div class="card-header">For Students</div>
+            <div class="card-body">
+                <h5 class="card-title">Access Your Results Anytime</h5>
+                <p class="card-text">View your semester results, download transcripts, and track your academic progress with our student portal.</p>
+                <a href="/student/register" class="btn btn-primary">Register Now</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card dashboard-card">
+            <div class="card-header">For Faculty</div>
+            <div class="card-body">
+                <h5 class="card-title">Efficient Result Management</h5>
+                <p class="card-text">Submit student results, manage courses, and generate reports with our dedicated faculty tools.</p>
+                <a href="/login" class="btn btn-primary">Faculty Login</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

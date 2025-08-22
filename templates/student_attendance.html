@@ -1,0 +1,588 @@
+{% extends "base_att.html" %}
+
+{% block title %}Student Dashboard - {{ student.full_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 24px;
+        margin-bottom: 32px;
+    }
+
+    .stat-card {
+        background: white;
+        padding: 24px;
+        border-radius: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 100px;
+        height: 100px;
+        background: linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+        border-radius: 50%;
+        transform: translate(30px, -30px);
+    }
+
+    .stat-card.attendance { border-color: #22c55e; }
+    .stat-card.lessons { border-color: #3b82f6; }
+    .stat-card.upcoming { border-color: #f59e0b; }
+    .stat-card.missed { border-color: #ef4444; }
+
+    .stat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: white;
+    }
+
+    .stat-icon.attendance { background: #22c55e; }
+    .stat-icon.lessons { background: #3b82f6; }
+    .stat-icon.upcoming { background: #f59e0b; }
+    .stat-icon.missed { background: #ef4444; }
+
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #1e293b;
+        line-height: 1;
+    }
+
+    .stat-label {
+        color: #64748b;
+        font-size: 0.95rem;
+        margin-bottom: 8px;
+    }
+
+    .stat-change {
+        font-size: 0.875rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .stat-change.positive {
+        color: #22c55e;
+    }
+
+    .stat-change.negative {
+        color: #ef4444;
+    }
+
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 32px;
+    }
+
+    .action-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        transition: all 0.3s;
+        border: 2px solid transparent;
+        cursor: pointer;
+    }
+
+    .action-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        border-color: #3b82f6;
+    }
+
+    .action-icon {
+        width: 60px;
+        height: 60px;
+        background: #f1f5f9;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: #3b82f6;
+        margin: 0 auto 16px;
+        transition: all 0.3s;
+    }
+
+    .action-card:hover .action-icon {
+        background: #3b82f6;
+        color: white;
+    }
+
+    .action-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 8px;
+    }
+
+    .action-desc {
+        color: #64748b;
+        font-size: 0.9rem;
+    }
+
+    .recent-activity {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .activity-header {
+        padding: 24px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .activity-item {
+        padding: 16px 24px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        transition: background 0.3s;
+    }
+
+    .activity-item:hover {
+        background: #f8fafc;
+    }
+
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+
+    .activity-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 0.9rem;
+        flex-shrink: 0;
+    }
+
+    .activity-icon.present { background: #22c55e; }
+    .activity-icon.absent { background: #ef4444; }
+    .activity-icon.late { background: #f59e0b; }
+
+    .activity-content {
+        flex: 1;
+    }
+
+    .activity-title {
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 4px;
+    }
+
+    .activity-meta {
+        color: #64748b;
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .progress-ring {
+        position: relative;
+        width: 120px;
+        height: 120px;
+        margin: 0 auto 16px;
+    }
+
+    .progress-ring svg {
+        width: 100%;
+        height: 100%;
+        transform: rotate(-90deg);
+    }
+
+    .progress-ring circle {
+        fill: none;
+        stroke-width: 8;
+        stroke-linecap: round;
+    }
+
+    .progress-ring .bg {
+        stroke: #e2e8f0;
+    }
+
+    .progress-ring .progress {
+        stroke: #22c55e;
+        stroke-dasharray: 314;
+        stroke-dashoffset: 314;
+        transition: stroke-dashoffset 0.5s ease;
+    }
+
+    .progress-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    .upcoming-lessons {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        margin-bottom: 32px;
+    }
+
+    .lesson-item {
+        padding: 20px 24px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .lesson-item:last-child {
+        border-bottom: none;
+    }
+
+    .lesson-time {
+        background: #f1f5f9;
+        padding: 12px;
+        border-radius: 12px;
+        text-align: center;
+        min-width: 80px;
+    }
+
+    .lesson-time-hour {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    .lesson-time-date {
+        font-size: 0.8rem;
+        color: #64748b;
+    }
+
+    .lesson-details {
+        flex: 1;
+    }
+
+    .lesson-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 4px;
+    }
+
+    .lesson-meta {
+        color: #64748b;
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .lesson-status {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .lesson-status.active {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .lesson-status.upcoming {
+        background: #fef3c7;
+        color: #a16207;
+    }
+
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .quick-actions {
+            grid-template-columns: 1fr;
+        }
+        
+        .lesson-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1>Welcome back, {{ student.full_name }}!</h1>
+    <p>Here's your attendance overview for this semester</p>
+</div>
+
+<!-- Statistics Cards -->
+<div class="stats-grid">
+    <div class="stat-card attendance">
+        <div class="stat-header">
+            <div>
+                <div class="stat-label">Attendance Rate</div>
+                <div class="stat-value">{{ "%.1f"|format(attendance_rate) }}%</div>
+                <div class="stat-change positive">
+                    <i class="fas fa-arrow-up"></i>
+                    +2.5% from last month
+                </div>
+            </div>
+            <div class="stat-icon attendance">
+                <i class="fas fa-check-circle"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card lessons">
+        <div class="stat-header">
+            <div>
+                <div class="stat-label">Total Lessons</div>
+                <div class="stat-value">{{ total_lessons }}</div>
+                <div class="stat-change positive">
+                    <i class="fas fa-arrow-up"></i>
+                    {{ attended_lessons }} attended
+                </div>
+            </div>
+            <div class="stat-icon lessons">
+                <i class="fas fa-book"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card upcoming">
+        <div class="stat-header">
+            <div>
+                <div class="stat-label">Upcoming Today</div>
+                <div class="stat-value">{{ upcoming_today }}</div>
+                <div class="stat-change">
+                    <i class="fas fa-clock"></i>
+                    Next in {{ next_lesson_time }} hours
+                </div>
+            </div>
+            <div class="stat-icon upcoming">
+                <i class="fas fa-calendar-alt"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card missed">
+        <div class="stat-header">
+            <div>
+                <div class="stat-label">Missed Lessons</div>
+                <div class="stat-value">{{ missed_lessons }}</div>
+                <div class="stat-change negative">
+                    <i class="fas fa-arrow-down"></i>
+                    {{ absent_lessons }} absences
+                </div>
+            </div>
+            <div class="stat-icon missed">
+                <i class="fas fa-times-circle"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="quick-actions">
+    <a href="{{ url_for('scan_qr') }}" class="action-card">
+        <div class="action-icon">
+            <i class="fas fa-qrcode"></i>
+        </div>
+        <div class="action-title">Scan QR Code</div>
+        <div class="action-desc">Mark your attendance</div>
+    </a>
+
+    <a href="{{ url_for('student_lessons') }}" class="action-card">
+        <div class="action-icon">
+            <i class="fas fa-list"></i>
+        </div>
+        <div class="action-title">View Lessons</div>
+        <div class="action-desc">See all your lessons</div>
+    </a>
+
+    <a href="{{ url_for('student_attendance_history') }}" class="action-card">
+        <div class="action-icon">
+            <i class="fas fa-history"></i>
+        </div>
+        <div class="action-title">Attendance History</div>
+        <div class="action-desc">View your records</div>
+    </a>
+
+    <a href="{{ url_for('student_reports') }}" class="action-card">
+        <div class="action-icon">
+            <i class="fas fa-chart-bar"></i>
+        </div>
+        <div class="action-title">Reports</div>
+        <div class="action-desc">Download reports</div>
+    </a>
+</div>
+
+<!-- Attendance Progress -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Semester Progress</h3>
+        <p class="card-subtitle">Your attendance performance this semester</p>
+    </div>
+    <div class="card-body" style="text-align: center;">
+        <div class="progress-ring">
+            <svg>
+                <circle class="bg" cx="60" cy="60" r="50"></circle>
+                <circle class="progress" cx="60" cy="60" r="50" style="stroke-dashoffset: {{ 314 - (314 * attendance_rate / 100) }};"></circle>
+            </svg>
+            <div class="progress-text">{{ "%.0f"|format(attendance_rate) }}%</div>
+        </div>
+        <p style="color: #64748b; margin-bottom: 0;">
+            You've attended {{ attended_lessons }} out of {{ total_lessons }} lessons
+        </p>
+    </div>
+</div>
+
+<!-- Upcoming Lessons -->
+<div class="upcoming-lessons">
+    <div class="activity-header">
+        <h3 class="card-title">Upcoming Lessons</h3>
+        <a href="{{ url_for('student_lessons') }}" class="btn btn-outline btn-sm">View All</a>
+    </div>
+    {% if upcoming_lessons %}
+        {% for lesson in upcoming_lessons[:5] %}
+        <div class="lesson-item">
+            <div class="lesson-time">
+                <div class="lesson-time-hour">{{ lesson.date_time.strftime('%H:%M') }}</div>
+                <div class="lesson-time-date">{{ lesson.date_time.strftime('%b %d') }}</div>
+            </div>
+            <div class="lesson-details">
+                <div class="lesson-title">{{ lesson.title }}</div>
+                <div class="lesson-meta">
+                    <span><i class="fas fa-book"></i> {{ lesson.subject.subject_name }}</span>
+                    <span><i class="fas fa-user"></i> {{ lesson.teacher.full_name }}</span>
+                    {% if lesson.location %}
+                        <span><i class="fas fa-map-marker-alt"></i> {{ lesson.location }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="lesson-status {{ 'active' if lesson.status == 'active' else 'upcoming' }}">
+                {{ lesson.status.title() }}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div style="padding: 40px; text-align: center; color: #64748b;">
+            <i class="fas fa-calendar-times" style="font-size: 3rem; margin-bottom: 16px; opacity: 0.5;"></i>
+            <p>No upcoming lessons scheduled</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Recent Activity -->
+<div class="recent-activity">
+    <div class="activity-header">
+        <h3 class="card-title">Recent Activity</h3>
+        <a href="{{ url_for('student_attendance_history') }}" class="btn btn-outline btn-sm">View All</a>
+    </div>
+    {% if recent_attendance %}
+        {% for attendance in recent_attendance[:5] %}
+        <div class="activity-item">
+            <div class="activity-icon {{ attendance.status }}">
+                <i class="fas fa-{{ 'check' if attendance.status == 'present' else 'times' if attendance.status == 'absent' else 'clock' }}"></i>
+            </div>
+            <div class="activity-content">
+                <div class="activity-title">{{ attendance.lesson.title }}</div>
+                <div class="activity-meta">
+                    <span><i class="fas fa-book"></i> {{ attendance.lesson.subject.subject_name }}</span>
+                    <span><i class="fas fa-calendar"></i> {{ attendance.lesson.date_time.strftime('%b %d, %Y') }}</span>
+                    <span><i class="fas fa-clock"></i> {{ attendance.scan_time.strftime('%H:%M') if attendance.scan_time else 'N/A' }}</span>
+                </div>
+            </div>
+            <div class="badge badge-{{ 'success' if attendance.status == 'present' else 'danger' if attendance.status == 'absent' else 'warning' }}">
+                {{ attendance.status.title() }}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div style="padding: 40px; text-align: center; color: #64748b;">
+            <i class="fas fa-clipboard-list" style="font-size: 3rem; margin-bottom: 16px; opacity: 0.5;"></i>
+            <p>No recent activity</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Update progress ring animation
+    document.addEventListener('DOMContentLoaded', function() {
+        const progressRing = document.querySelector('.progress-ring .progress');
+        const attendanceRate = {{ attendance_rate }};
+        const circumference = 2 * Math.PI * 50; // radius is 50
+        const offset = circumference - (attendanceRate / 100) * circumference;
+        
+        setTimeout(() => {
+            progressRing.style.strokeDashoffset = offset;
+        }, 500);
+    });
+
+    // Real-time updates for active lessons
+    function checkForActiveUpdates() {
+        fetch('/api/student/active-lessons')
+            .then(response => response.json())
+            .then(data => {
+                // Update active lesson indicators
+                document.querySelectorAll('.lesson-status').forEach(status => {
+                    const lessonId = status.closest('.lesson-item').dataset.lessonId;
+                    if (data.activeLessons.includes(parseInt(lessonId))) {
+                        status.className = 'lesson-status active';
+                        status.textContent = 'Active';
+                    }
+                });
+            })
+            .catch(error => console.log('Update check failed:', error));
+    }
+
+    // Check for updates every 30 seconds
+    setInterval(checkForActiveUpdates, 30000);
+
+    // Add click handlers for quick actions
+    document.querySelectorAll('.action-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            if (e.target.tagName !== 'A') {
+                window.location.href = this.getAttribute('href');
+            }
+        });
+    });
+</script>
+{% endblock %}

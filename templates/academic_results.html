@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">All Results</h1>
+        <a href="{{ url_for('academic_dashboard') }}" class="d-none d-sm-inline-block btn btn-secondary shadow-sm">
+            <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+        </a>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="bi bi-clipboard-data me-1"></i> Results List
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Subject</th>
+                            <th>Student</th>
+                            <th>Status</th>
+                            <th>Submitted At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in results.items %}
+                        <tr>
+                            <td>
+                                <div>{{ result.subject.subject_name }}</div>
+                                <small class="text-muted">{{ result.subject.subject_code }}</small>
+                            </td>
+                            <td>
+                                <div>{{ result.student.full_name }}</div>
+                                <small class="text-muted">{{ result.student.roll_number }}</small>
+                            </td>
+                            <td>
+                                <span class="badge 
+                                    {% if result.status == 'approved' %}bg-success
+                                    {% elif result.status == 'rejected' %}bg-danger
+                                    {% else %}bg-warning{% endif %}">
+                                    {{ result.status|title }}
+                                </span>
+                            </td>
+                            <td>{{ result.submitted_at.strftime('%b %d, %Y %H:%M') }}</td>
+                            <td>
+                                <a href="{{ url_for('review_result', result_id=result.id) }}" 
+                                   class="btn btn-sm btn-primary">
+                                    <i class="bi bi-eye me-1"></i> Review
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if results.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('academic_results', page=results.prev_num) }}">
+                            Previous
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">Previous</span>
+                    </li>
+                    {% endif %}
+
+                    {% for page_num in results.iter_pages() %}
+                        {% if page_num %}
+                            <li class="page-item {% if page_num == results.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('academic_results', page=page_num) }}">
+                                    {{ page_num }}
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if results.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('academic_results', page=results.next_num) }}">
+                            Next
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">Next</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+{% endblock %}

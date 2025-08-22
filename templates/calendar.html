@@ -1,0 +1,132 @@
+{% extends "base_cal.html" %}
+
+{% block title %}Academic Calendar{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">Academic Calendar</h2>
+    <div>
+        {% if user.role in ['academic', 'teacher'] %}
+        <a href="{{ url_for('add_calendar_event') }}" class="btn btn-primary me-2">
+            <i class="bi bi-plus-lg"></i> Add Event
+        </a>
+        <a href="{{ url_for('import_calendar_events') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-upload"></i> Import
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>Upcoming Events</h4>
+            <div class="text-muted small">Next 7 days</div>
+        </div>
+        
+        {% for event in events %}
+            {% if event.start_date > now and event.start_date < now + timedelta(days=7) %}
+            <div class="card event-card mb-3" style="border-left-color: {{ event.color }};">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <h5 class="card-title">{{ event.title }}</h5>
+                        <span class="badge bg-light text-dark">{{ event.event_type|capitalize }}</span>
+                    </div>
+                    <div class="mb-2">
+                        <i class="bi bi-calendar me-1"></i>
+                        {{ event.start_date.strftime('%a, %b %d, %Y') }}
+                        <span class="mx-1">•</span>
+                        <i class="bi bi-clock me-1"></i>
+                        {{ event.start_date.strftime('%I:%M %p') }} - {{ event.end_date.strftime('%I:%M %p') }}
+                    </div>
+                    <p class="card-text text-muted">{{ event.description|truncate(120) }}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            <i class="bi bi-tag me-1"></i>
+                            {{ event.target_type|capitalize }}: {{ event.target_value or 'All' }}
+                        </small>
+                        <a href="#" class="btn btn-sm btn-outline-primary">Details</a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+    
+    <div class="col-md-6">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>Event Types</h4>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row">
+                    {% for type, data in event_types.items() %}
+                    <div class="col-md-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="rounded-circle me-3" style="width: 16px; height: 16px; background-color: {{ data.color }};"></div>
+                            <div>{{ type|capitalize }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>Quick Actions</h4>
+        </div>
+        
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <a href="{{ url_for('add_calendar_event') }}" class="card h-100 text-center text-decoration-none">
+                    <div class="card-body">
+                        <div class="text-primary mb-2">
+                            <i class="bi bi-plus-circle" style="font-size: 2rem;"></i>
+                        </div>
+                        <h5 class="card-title">Create Event</h5>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-6">
+                <a href="{{ url_for('import_calendar_events') }}" class="card h-100 text-center text-decoration-none">
+                    <div class="card-body">
+                        <div class="text-success mb-2">
+                            <i class="bi bi-upload" style="font-size: 2rem;"></i>
+                        </div>
+                        <h5 class="card-title">Import Events</h5>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const calendarEl = document.getElementById('calendar');
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+            },
+            events: "{{ url_for('api_calendar_events') }}",
+            eventClick: function(info) {
+                // Handle event click (show modal with details)
+                console.log('Event clicked:', info.event);
+            },
+            eventTimeFormat: {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            }
+        });
+        calendar.render();
+    });
+</script>
+{% endblock %}

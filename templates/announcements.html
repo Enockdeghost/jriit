@@ -1,0 +1,1077 @@
+{% extends "base_cal.html" %}
+
+{% block title %}Jriit Announcements{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-4">
+    <!-- Dashboard Header -->
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="display-5 fw-bold mb-2 text-primary">
+                <i class="bi bi-megaphone me-3"></i>Announcements Dashboard
+            </h1>
+            <p class="text-muted fs-5">Stay updated with the latest news and information</p>
+        </div>
+        
+        {% if user.role in ['admin', 'teacher', 'academic'] %}
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('add_announcement') }}" class="btn btn-primary btn-lg shadow-sm rounded-pill px-4">
+                <i class="bi bi-plus-lg me-2"></i> Add Announcement
+            </a>
+            <button class="btn btn-outline-primary btn-lg rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#bulkActionsModal">
+                <i class="bi bi-gear me-2"></i> Manage
+            </button>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Quick Actions for Admins/Teachers -->
+    {% if user.role in ['admin', 'teacher', 'academic'] %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm bg-light">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-lightning-charge text-warning me-2 fs-5"></i>
+                            <span class="fw-semibold">Quick Actions</span>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-primary rounded-pill">
+                                <i class="bi bi-bell me-1"></i> Send Notification
+                            </button>
+                            <button class="btn btn-sm btn-outline-success rounded-pill">
+                                <i class="bi bi-archive me-1"></i> Archive Old
+                            </button>
+                            <button class="btn btn-sm btn-outline-info rounded-pill">
+                                <i class="bi bi-file-earmark-text me-1"></i> Export Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Stats Overview -->
+    <div class="row mb-5">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100 card-hover">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted text-uppercase small mb-2 fw-bold">Total Announcements</h6>
+                            <h2 class="mb-0 fw-bold text-primary">{{ announcements|length }}</h2>
+                            <small class="text-success">
+                                <i class="bi bi-arrow-up"></i> 12% from last month
+                            </small>
+                        </div>
+                        <div class="bg-primary bg-opacity-10 p-3 rounded-circle">
+                            <i class="bi bi-megaphone fs-2 text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100 card-hover">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted text-uppercase small mb-2 fw-bold">Your Unread</h6>
+                            <h2 class="mb-0 fw-bold text-warning">{{ unread_count }}</h2>
+                            <small class="text-muted">
+                                <i class="bi bi-clock"></i> Updated 2 min ago
+                            </small>
+                        </div>
+                        <div class="bg-warning bg-opacity-10 p-3 rounded-circle">
+                            <i class="bi bi-bell fs-2 text-warning"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100 card-hover">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted text-uppercase small mb-2 fw-bold">Active Today</h6>
+                            <h2 class="mb-0 fw-bold text-success">{{ (announcements|length * 0.3)|round|int }}</h2>
+                            <small class="text-success">
+                                <i class="bi bi-arrow-up"></i> 5% increase
+                            </small>
+                        </div>
+                        <div class="bg-success bg-opacity-10 p-3 rounded-circle">
+                            <i class="bi bi-check-circle fs-2 text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100 card-hover">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted text-uppercase small mb-2 fw-bold">High Priority</h6>
+                            <h2 class="mb-0 fw-bold text-danger">{{ (announcements|length * 0.15)|round|int }}</h2>
+                            <small class="text-danger">
+                                <i class="bi bi-exclamation-triangle"></i> Needs attention
+                            </small>
+                        </div>
+                        <div class="bg-danger bg-opacity-10 p-3 rounded-circle">
+                            <i class="bi bi-exclamation-triangle fs-2 text-danger"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Announcements Column -->
+        <div class="col-lg-8 mb-4">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 py-4">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <h5 class="card-title mb-0 fw-bold">Recent Announcements</h5>
+                        <div class="d-flex gap-2">
+                            <div class="input-group" style="width: 300px;">
+                                <input type="text" class="form-control rounded-pill" placeholder="Search announcements..." id="searchInput">
+                                <button class="btn btn-outline-secondary rounded-pill ms-2" type="button">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary dropdown-toggle rounded-pill" type="button" data-bs-toggle="dropdown">
+                                    <i class="bi bi-funnel me-1"></i> Filter
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="#"><i class="bi bi-calendar me-2"></i>This Week</a></li>
+                                    <li><a class="dropdown-item" href="#"><i class="bi bi-calendar me-2"></i>This Month</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="#"><i class="bi bi-star me-2"></i>High Priority</a></li>
+                                    <li><a class="dropdown-item" href="#"><i class="bi bi-bell me-2"></i>Unread Only</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body p-0">
+                    {% if announcements %}
+                    <div class="list-group list-group-flush">
+                        {% for announcement in announcements %}
+                        <div class="list-group-item border-0 p-4 announcement-item" data-aos="fade-up" data-aos-delay="{{ loop.index * 100 }}">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div class="d-flex flex-wrap gap-2">
+                                    <span class="badge rounded-pill bg-{% if announcement.priority == 'high' %}danger{% elif announcement.priority == 'medium' %}warning{% else %}success{% endif %} px-3 py-2">
+                                        <i class="bi bi-{% if announcement.priority == 'high' %}exclamation-triangle{% elif announcement.priority == 'medium' %}dash-circle{% else %}check-circle{% endif %} me-1"></i>
+                                        {{ announcement.priority|capitalize }}
+                                    </span>
+                                    <span class="badge bg-light text-dark border rounded-pill px-3 py-2">
+                                        <i class="bi bi-tag me-1"></i>
+                                        {{ announcement.target_type|capitalize }}: {{ announcement.target_value or 'All' }}
+                                    </span>
+                                    {% if announcement.expires_at %}
+                                    <span class="badge bg-light text-dark border rounded-pill px-3 py-2">
+                                        <i class="bi bi-clock-history me-1"></i>
+                                        Expires: {{ announcement.expires_at.strftime('%b %d') }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <small class="text-muted">
+                                        <i class="bi bi-clock me-1"></i>
+                                        {{ announcement.created_at.strftime('%b %d, %Y') }}
+                                    </small>
+                                    {% if user.role in ['admin', 'teacher', 'academic'] %}
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary rounded-pill" type="button" data-bs-toggle="dropdown">
+                                            <i class="bi bi-three-dots"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="#"><i class="bi bi-pencil me-2"></i>Edit</a></li>
+                                            <li><a class="dropdown-item" href="#"><i class="bi bi-archive me-2"></i>Archive</a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item text-danger" href="#"><i class="bi bi-trash me-2"></i>Delete</a></li>
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex align-items-start mb-3">
+                                <div class="flex-shrink-0 me-3">
+                                    <div class="bg-primary bg-opacity-10 rounded-circle p-3">
+                                        <i class="bi bi-megaphone fs-5 text-primary"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h4 class="mb-2 fw-bold">{{ announcement.title }}</h4>
+                                    <div class="mb-3 text-muted lh-base">
+                                        {{ announcement.content|safe|truncate(200) }}
+                                    </div>
+                                    
+                                    {% if announcement.attachment_path %}
+                                    <div class="mb-3">
+                                        <a href="{{ url_for('download_announcement_attachment', announcement_id=announcement.id) }}" class="d-inline-flex align-items-center text-decoration-none">
+                                            <div class="d-flex align-items-center bg-light border rounded-pill px-3 py-2 hover-shadow">
+                                                <i class="bi bi-paperclip me-2 text-primary"></i>
+                                                <span class="fw-semibold">{{ announcement.attachment_name }}</span>
+                                                <i class="bi bi-download ms-2 text-primary"></i>
+                                            </div>
+                                        </a>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <button class="btn btn-sm btn-outline-primary rounded-pill" onclick="toggleContent(this)">
+                                        <i class="bi bi-eye me-1"></i> Read More
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-sm me-2">
+                                            <div class="avatar-title bg-primary bg-opacity-10 text-primary rounded-circle">
+                                                {% if announcement.creator.full_name %}
+                                                    {% set name_parts = announcement.creator.full_name.split() %}
+                                                    {% if name_parts|length >= 2 %}
+                                                        {{ name_parts[0][0] }}{{ name_parts[-1][0] }}
+                                                    {% elif name_parts|length == 1 %}
+                                                        {{ name_parts[0][0] }}
+                                                    {% else %}
+                                                        <i class="bi bi-person"></i>
+                                                    {% endif %}
+                                                {% else %}
+                                                    <i class="bi bi-person"></i>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="fw-semibold">{{ announcement.creator.full_name }}</div>
+                                            <small class="text-muted">Author</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-outline-secondary rounded-pill" onclick="markAsRead({{ announcement.id }})">
+                                        <i class="bi bi-check2"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary rounded-pill" onclick="bookmarkAnnouncement({{ announcement.id }})">
+                                        <i class="bi bi-bookmark"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary rounded-pill" onclick="shareAnnouncement({{ announcement.id }})">
+                                        <i class="bi bi-share"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% if not loop.last %}
+                        <div class="dropdown-divider mx-4"></div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center p-5">
+                        <div class="mb-4">
+                            <i class="bi bi-megaphone text-muted" style="font-size: 4rem;"></i>
+                        </div>
+                        <h4 class="mb-2">No announcements yet</h4>
+                        <p class="text-muted">Check back later for updates{% if user.role in ['admin', 'teacher', 'academic'] %} or create a new announcement{% endif %}</p>
+                        {% if user.role in ['admin', 'teacher', 'academic'] %}
+                        <a href="{{ url_for('add_announcement') }}" class="btn btn-primary mt-3 rounded-pill">
+                            <i class="bi bi-plus-lg me-2"></i> Create Announcement
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                {% if announcements %}
+                <div class="card-footer bg-white border-0 py-3">
+                    <nav aria-label="Announcements navigation">
+                        <ul class="pagination justify-content-center mb-0">
+                            <li class="page-item disabled">
+                                <a class="page-link rounded-pill" href="#" tabindex="-1">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item active">
+                                <a class="page-link rounded-pill" href="#">1</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link rounded-pill" href="#">2</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link rounded-pill" href="#">3</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link rounded-pill" href="#">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Filters and Stats Column -->
+        <div class="col-lg-4">
+            <!-- Filters Card -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="card-title mb-0 fw-bold">
+                        <i class="bi bi-funnel me-2"></i>Filter Announcements
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <label class="form-label fw-bold mb-3">Priority Level</label>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="high-priority" checked>
+                            <label class="form-check-label d-flex align-items-center justify-content-between" for="high-priority">
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-danger me-2 rounded-circle" style="width: 12px; height: 12px;">&nbsp;</span>
+                                    High Priority
+                                </div>
+                                <span class="badge bg-light text-dark">{{ (announcements|length * 0.15)|round|int }}</span>
+                            </label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="medium-priority" checked>
+                            <label class="form-check-label d-flex align-items-center justify-content-between" for="medium-priority">
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-warning me-2 rounded-circle" style="width: 12px; height: 12px;">&nbsp;</span>
+                                    Medium Priority
+                                </div>
+                                <span class="badge bg-light text-dark">{{ (announcements|length * 0.5)|round|int }}</span>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="low-priority" checked>
+                            <label class="form-check-label d-flex align-items-center justify-content-between" for="low-priority">
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-success me-2 rounded-circle" style="width: 12px; height: 12px;">&nbsp;</span>
+                                    Low Priority
+                                </div>
+                                <span class="badge bg-light text-dark">{{ (announcements|length * 0.35)|round|int }}</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold mb-3">Target Audience</label>
+                        <select class="form-select rounded-pill">
+                            <option>All Targets</option>
+                            <option>Department Only</option>
+                            <option>Course Only</option>
+                            <option>Year Only</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold mb-3">Date Range</label>
+                        <div class="input-group mb-3">
+                            <span class="input-group-text rounded-pill-start">
+                                <i class="bi bi-calendar"></i>
+                            </span>
+                            <input type="date" class="form-control rounded-pill-end" placeholder="Start date">
+                        </div>
+                        <div class="input-group">
+                            <span class="input-group-text rounded-pill-start">
+                                <i class="bi bi-calendar"></i>
+                            </span>
+                            <input type="date" class="form-control rounded-pill-end" placeholder="End date">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold mb-3">Status</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="showUnreadOnly">
+                            <label class="form-check-label" for="showUnreadOnly">
+                                Unread only
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary rounded-pill">
+                            <i class="bi bi-funnel me-2"></i> Apply Filters
+                        </button>
+                        <button class="btn btn-outline-secondary rounded-pill">
+                            <i class="bi bi-arrow-counterclockwise me-2"></i> Reset Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Stats Card -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="card-title mb-0 fw-bold">
+                        <i class="bi bi-bar-chart me-2"></i>Priority Distribution
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-danger me-2 rounded-circle" style="width: 12px; height: 12px;">&nbsp;</span>
+                                <span class="small fw-semibold">High Priority</span>
+                            </div>
+                            <div class="fw-bold">{{ priority_counts.high_perc or 15 }}%</div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-warning me-2 rounded-circle" style="width: 12px; height: 12px;">&nbsp;</span>
+                                <span class="small fw-semibold">Medium Priority</span>
+                            </div>
+                            <div class="fw-bold">{{ priority_counts.medium_perc or 50 }}%</div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-success me-2 rounded-circle" style="width: 12px; height: 12px;">&nbsp;</span>
+                                <span class="small fw-semibold">Low Priority</span>
+                            </div>
+                            <div class="fw-bold">{{ priority_counts.low_perc or 35 }}%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="progress rounded-pill mb-4" style="height: 8px;">
+                        <div class="progress-bar bg-danger" role="progressbar" style="width: {{ priority_counts.high_perc or 15 }}%"></div>
+                        <div class="progress-bar bg-warning" role="progressbar" style="width: {{ priority_counts.medium_perc or 50 }}%"></div>
+                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ priority_counts.low_perc or 35 }}%"></div>
+                    </div>
+                    
+                    <div class="border-top pt-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="text-muted small">Total Announcements</div>
+                            <div class="fw-bold">{{ announcements|length }}</div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="text-muted small">Your Unread</div>
+                            <div class="fw-bold text-warning">{{ unread_count }}</div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="text-muted small">This Week</div>
+                            <div class="fw-bold text-success">{{ (announcements|length * 0.3)|round|int }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Activity Card -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="card-title mb-0 fw-bold">
+                        <i class="bi bi-activity me-2"></i>Recent Activity
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-primary"></div>
+                            <div class="timeline-content">
+                                <div class="fw-semibold">New announcement posted</div>
+                                <small class="text-muted">2 hours ago</small>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-warning"></div>
+                            <div class="timeline-content">
+                                <div class="fw-semibold">Priority announcement updated</div>
+                                <small class="text-muted">4 hours ago</small>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-success"></div>
+                            <div class="timeline-content">
+                                <div class="fw-semibold">5 announcements archived</div>
+                                <small class="text-muted">1 day ago</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Actions Modal (Admin/Teacher only) -->
+{% if user.role in ['admin', 'teacher', 'academic'] %}
+<div class="modal fade" id="bulkActionsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-gear me-2"></i>Bulk Actions</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary">
+                        <i class="bi bi-bell me-2"></i>Send Notifications to All
+                    </button>
+                    <button class="btn btn-outline-warning">
+                        <i class="bi bi-archive me-2"></i>Archive Expired Announcements
+                    </button>
+                    <button class="btn btn-outline-info">
+                        <i class="bi bi-file-earmark-text me-2"></i>Export Announcements Report
+                    </button>
+                    <button class="btn btn-outline-secondary">
+                        <i class="bi bi-trash me-2"></i>Delete Selected
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+    :root {
+        --primary-color: #0d6efd;
+        --secondary-color: #6c757d;
+        --success-color: #198754;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --info-color: #0dcaf0;
+        --light-color: #f8f9fa;
+        --dark-color: #212529;
+        --border-radius: 12px;
+        --border-radius-lg: 16px;
+        --border-radius-xl: 20px;
+    }
+    
+    .card {
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    
+    .card-hover:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    }
+    
+    .card-header {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+    }
+    
+    .rounded-pill {
+        border-radius: 50rem !important;
+    }
+    
+    .rounded-pill-start {
+        border-top-left-radius: 50rem !important;
+        border-bottom-left-radius: 50rem !important;
+    }
+    
+    .rounded-pill-end {
+        border-top-right-radius: 50rem !important;
+        border-bottom-right-radius: 50rem !important;
+    }
+    
+    .avatar-sm {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .avatar-title {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+    
+    .announcement-item {
+        transition: all 0.3s ease;
+        position: relative;
+        margin-bottom: 0;
+    }
+    
+    .announcement-item:hover {
+        background-color: rgba(13, 110, 253, 0.02);
+        transform: translateX(5px);
+    }
+    
+    .announcement-item::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 4px;
+        background: transparent;
+        transition: all 0.3s ease;
+    }
+    
+    .announcement-item:hover::before {
+        background: var(--primary-color);
+    }
+    
+    .list-group-item {
+        border: none;
+        padding: 1.5rem;
+    }
+    
+    .hover-shadow {
+        transition: all 0.3s ease;
+    }
+    
+    .hover-shadow:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+    }
+    
+    .progress {
+        overflow: visible;
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+    
+    .progress-bar {
+        position: relative;
+        overflow: visible;
+        transition: all 0.3s ease;
+    }
+    
+    .badge {
+        font-weight: 500;
+        letter-spacing: 0.3px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
+    .form-check-input:checked {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+    }
+    
+    .form-check-input:focus {
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+    
+    .btn {
+        border-radius: var(--border-radius);
+        font-weight: 500;
+        transition: all 0.3s ease;
+        border-width: 1px;
+    }
+    
+    .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .btn-primary {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+    }
+    
+    .btn-outline-primary:hover {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+    }
+    
+    .dropdown-menu {
+        border: none;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        border-radius: var(--border-radius);
+        padding: 0.5rem 0;
+    }
+    
+    .dropdown-item {
+        padding: 0.75rem 1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .dropdown-item:hover {
+        background-color: rgba(13, 110, 253, 0.1);
+        transform: translateX(5px);
+    }
+    
+    .pagination .page-link {
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        color: var(--primary-color);
+        margin: 0 2px;
+        transition: all 0.3s ease;
+    }
+    
+    .pagination .page-link:hover {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+        color: white;
+        transform: translateY(-2px);
+    }
+    
+    .pagination .page-item.active .page-link {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+    }
+    
+    .timeline {
+        position: relative;
+        padding-left: 1.5rem;
+    }
+    
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 0.5rem;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: rgba(0, 0, 0, 0.1);
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding-bottom: 1.5rem;
+    }
+    
+    .timeline-item:last-child {
+        padding-bottom: 0;
+    }
+    
+    .timeline-marker {
+        position: absolute;
+        left: -1.25rem;
+        top: 0.25rem;
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 50%;
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .timeline-content {
+        padding-left: 0.5rem;
+    }
+    
+    .modal-content {
+        border: none;
+        border-radius: var(--border-radius-lg);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    }
+    
+    .modal-header {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        padding: 1.5rem;
+    }
+    
+    .modal-body {
+        padding: 1.5rem;
+    }
+    
+    .form-control:focus {
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+        border-color: var(--primary-color);
+    }
+    
+    .form-select:focus {
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+        border-color: var(--primary-color);
+    }
+    
+    .input-group-text {
+        background-color: rgba(0, 0, 0, 0.05);
+        border-color: rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Animations */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .announcement-item {
+        animation: fadeInUp 0.5s ease forwards;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .card-header .d-flex {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 1rem;
+        }
+        
+        .input-group {
+            width: 100% !important;
+        }
+        
+        .stats-card {
+            margin-bottom: 1rem;
+        }
+        
+        .announcement-item {
+            padding: 1rem;
+        }
+        
+        .d-flex.gap-2 {
+            flex-wrap: wrap;
+        }
+    }
+    
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+        .card {
+            background-color: #1a1a1a;
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .card-header {
+            background: rgba(26, 26, 26, 0.9);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .text-muted {
+            color: #b0b0b0 !important;
+        }
+        
+        .bg-light {
+            background-color: #2a2a2a !important;
+        }
+        
+        .border {
+            border-color: rgba(255, 255, 255, 0.1) !important;
+        }
+    }
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 10px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+    
+    /* Loading states */
+    .loading {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+    
+    .loading::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 20px;
+        height: 20px;
+        margin: -10px 0 0 -10px;
+        border: 2px solid #f3f3f3;
+        border-top: 2px solid var(--primary-color);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+
+<script>
+    // Search functionality
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const announcements = document.querySelectorAll('.announcement-item');
+        
+        announcements.forEach(item => {
+            const title = item.querySelector('h4').textContent.toLowerCase();
+            const content = item.querySelector('.text-muted').textContent.toLowerCase();
+            
+            if (title.includes(searchTerm) || content.includes(searchTerm)) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+    
+    // Toggle content functionality
+    function toggleContent(button) {
+        const content = button.closest('.announcement-item');
+        const shortText = content.querySelector('.text-muted');
+        
+        if (button.textContent.includes('Read More')) {
+            // Expand content
+            button.innerHTML = '<i class="bi bi-eye-slash me-1"></i> Read Less';
+            shortText.style.maxHeight = 'none';
+            shortText.style.overflow = 'visible';
+        } else {
+            // Collapse content
+            button.innerHTML = '<i class="bi bi-eye me-1"></i> Read More';
+            shortText.style.maxHeight = '4.5em';
+            shortText.style.overflow = 'hidden';
+        }
+    }
+    
+    // Mark as read functionality
+    function markAsRead(announcementId) {
+        const button = event.target.closest('button');
+        button.classList.add('loading');
+        
+        // Simulate API call
+        setTimeout(() => {
+            button.classList.remove('loading');
+            button.innerHTML = '<i class="bi bi-check2-all"></i>';
+            button.classList.add('btn-success');
+            button.classList.remove('btn-outline-secondary');
+            
+            // Update unread count
+            const unreadCountElements = document.querySelectorAll('.fw-bold.text-warning');
+            unreadCountElements.forEach(el => {
+                const currentCount = parseInt(el.textContent);
+                if (currentCount > 0) {
+                    el.textContent = currentCount - 1;
+                }
+            });
+        }, 1000);
+    }
+    
+    // Bookmark functionality
+    function bookmarkAnnouncement(announcementId) {
+        const button = event.target.closest('button');
+        const icon = button.querySelector('i');
+        
+        if (icon.classList.contains('bi-bookmark')) {
+            icon.classList.remove('bi-bookmark');
+            icon.classList.add('bi-bookmark-fill');
+            button.classList.add('btn-warning');
+            button.classList.remove('btn-outline-secondary');
+        } else {
+            icon.classList.remove('bi-bookmark-fill');
+            icon.classList.add('bi-bookmark');
+            button.classList.remove('btn-warning');
+            button.classList.add('btn-outline-secondary');
+        }
+    }
+    
+    // Share functionality
+    function shareAnnouncement(announcementId) {
+        if (navigator.share) {
+            navigator.share({
+                title: 'Announcement',
+                text: 'Check out this announcement',
+                url: window.location.href + '#announcement-' + announcementId
+            });
+        } else {
+            // Fallback - copy to clipboard
+            navigator.clipboard.writeText(window.location.href + '#announcement-' + announcementId);
+            
+            const button = event.target.closest('button');
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="bi bi-check2"></i>';
+            button.classList.add('btn-success');
+            
+            setTimeout(() => {
+                button.innerHTML = originalText;
+                button.classList.remove('btn-success');
+            }, 2000);
+        }
+    }
+    
+    // Filter functionality
+    document.querySelectorAll('.form-check-input').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            applyFilters();
+        });
+    });
+    
+    function applyFilters() {
+        const highPriority = document.getElementById('high-priority').checked;
+        const mediumPriority = document.getElementById('medium-priority').checked;
+        const lowPriority = document.getElementById('low-priority').checked;
+        const unreadOnly = document.getElementById('showUnreadOnly').checked;
+        
+        const announcements = document.querySelectorAll('.announcement-item');
+        
+        announcements.forEach(item => {
+            const priorityBadge = item.querySelector('.badge');
+            const priorityText = priorityBadge.textContent.toLowerCase();
+            
+            let showByPriority = false;
+            if (priorityText.includes('high') && highPriority) showByPriority = true;
+            if (priorityText.includes('medium') && mediumPriority) showByPriority = true;
+            if (priorityText.includes('low') && lowPriority) showByPriority = true;
+            
+            // For unread filter, we would need to check actual read status
+            // For now, we'll show all items
+            let showByReadStatus = true;
+            
+            if (showByPriority && showByReadStatus) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+    
+    // Initialize tooltips and popovers
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Bootstrap tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        // Initialize Bootstrap popovers
+        const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+        popoverTriggerList.map(function(popoverTriggerEl) {
+            return new bootstrap.Popover(popoverTriggerEl);
+        });
+        
+        // Add smooth scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

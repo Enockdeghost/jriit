@@ -1,0 +1,677 @@
+{% extends "base_chat.html" %}
+
+{% block title %}
+    {% if room.room_type == 'private' %}
+        {% set other_user = room.participants|selectattr('user_id', 'ne', session['user_id'])|first %}
+        {% if other_user %}
+            Chat with {{ other_user.user.username }}
+        {% else %}
+            Private Chat
+        {% endif %}
+    {% else %}
+        {{ room.name or 'Group Chat' }}
+    {% endif %} - Connect
+{% endblock %}
+
+{% block content %}
+<div class="row g-4 h-100">
+    <!-- Chat Sidebar -->
+    <div class="col-md-3 col-lg-2">
+        <div class="chat-sidebar p-3 fade-in h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0">Chats</h6>
+                <a href="{{ url_for('chat_index') }}" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+            </div>
+            
+            <!-- Quick chat list -->
+            <div class="chat-rooms-list">
+                {% if user_rooms %}
+                    {% for room_item, participant_item in user_rooms[:5] %}
+                    <div class="chat-room-item p-2 small {{ 'bg-light' if room_item.id == room.id else '' }}" 
+                         onclick="window.location.href='{{ url_for('chat_room', room_id=room_item.id) }}'">
+                        <div class="d-flex align-items-center">
+                            <div class="position-relative me-2">
+                                {% if room_item.room_type == 'private' %}
+                                    {% set other_user = room_item.participants|selectattr('user_id', 'ne', session['user_id'])|first %}
+                                    {% if other_user %}
+                                        <img src="{{ other_user.user.avatar_url or <i class="fas fa-plus"></i> }}" 
+                                             alt="User Avatar" class="rounded-circle" style="width: 32px; height: 32px;">
+                                    {% else %}
+                                        <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center" 
+                                             style="width: 32px; height: 32px; font-size: 12px;">
+                                            <i class="fas fa-user"></i>
+                                        </div>
+                                    {% endif %}
+                                {% else %}
+                                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" 
+                                         style="width: 32px; height: 32px; font-size: 12px;">
+                                        <i class="fas fa-users"></i>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="flex-grow-1 min-width-0">
+                                <div class="fw-bold text-truncate">
+                                    {% if room_item.room_type == 'private' %}
+                                        {% if other_user %}
+                                            {{ other_user.user.username }}
+                                        {% else %}
+                                            Private Chat
+                                        {% endif %}
+                                    {% else %}
+                                        {{ room_item.name or 'Group Chat' }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted small">
+                        <p>No chat rooms available</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Chat Area -->
+    <div class="col-md-9 col-lg-10">
+        <div class="card h-100 fade-in">
+            <!-- Chat Header -->
+            <div class="card-header bg-white border-bottom">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <div class="position-relative me-3">
+                            {% if room.room_type == 'private' %}
+                                {% set other_user = room.participants|selectattr('user_id', 'ne', session['user_id'])|first %}
+                                {% if other_user %}
+                                    <img src="{{ other_user.user.avatar_url or 'https://via.placeholder.com/40' }}" 
+                                         alt="User Avatar" class="user-avatar">
+                                    <span class="online-indicator {{ 'bg-success' if other_user.user.is_online else 'bg-secondary' }}"></span>
+                                {% else %}
+                                    <div class="user-avatar bg-secondary text-white d-flex align-items-center justify-content-center">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                {% endif %}
+                            {% else %}
+                                <div class="user-avatar bg-primary text-white d-flex align-items-center justify-content-center">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div>
+                            <h6 class="mb-0">
+                                {% if room.room_type == 'private' %}
+                                    {% if other_user %}
+                                        {{ other_user.user.username }}
+                                    {% else %}
+                                        Private Chat
+                                    {% endif %}
+                                {% else %}
+                                    {{ room.name or 'Group Chat' }}
+                                {% endif %}
+                            </h6>
+                            <small class="text-muted">
+                                {% if room.room_type == 'private' %}
+                                    {% if other_user %}
+                                        {{ 'Online' if other_user.user.is_online else 'Offline' }}
+                                    {% else %}
+                                        Unknown
+                                    {% endif %}
+                                {% else %}
+                                    {{ room.participants|length }} participants
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-info-circle me-2"></i>Chat Info</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-search me-2"></i>Search Messages</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="#"><i class="fas fa-trash me-2"></i>Delete Chat</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Messages Area -->
+            <div class="card-body d-flex flex-column p-0" style="height: 500px;">
+                <div class="flex-grow-1 overflow-auto p-3" id="messagesContainer">
+                    {% if messages %}
+                        {% for message in messages %}
+                        <div class="d-flex mb-3 {{ 'justify-content-end' if message.sender_id == session['user_id'] else 'justify-content-start' }}">
+                            {% if message.sender_id != session['user_id'] %}
+                            <div class="me-2">
+                                <img src="{{ message.sender.avatar_url or <i class="fas fa-plus"></i> }}" 
+                                     alt="User Avatar" class="rounded-circle" style="width: 32px; height: 32px;">
+                            </div>
+                            {% endif %}
+                            
+                            <div class="message-bubble {{ 'message-sent' if message.sender_id == session['user_id'] else 'message-received' }}">
+                                {% if message.sender_id != session['user_id'] %}
+                                <div class="fw-bold small text-muted mb-1">{{ message.sender.username }}</div>
+                                {% endif %}
+                                
+                                {% if message.file_url %}
+                                <div class="mb-2">
+                                    {% if message.file_url.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')) %}
+                                        <img src="{{ message.file_url }}" alt="Image" class="file-preview img-fluid">
+                                    {% elif message.file_url.lower().endswith(('.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm')) %}
+                                        <video controls class="file-preview">
+                                            <source src="{{ message.file_url }}" type="video/mp4">
+                                            Your browser does not support the video tag.
+                                        </video>
+                                    {% elif message.file_url.lower().endswith(('.mp3', '.wav', '.ogg', '.aac', '.m4a')) %}
+                                        <audio controls class="w-100">
+                                            <source src="{{ message.file_url }}" type="audio/mpeg">
+                                            Your browser does not support the audio element.
+                                        </audio>
+                                    {% else %}
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-file me-2"></i>
+                                            <a href="{{ message.file_url }}" target="_blank" class="text-decoration-none">
+                                                {{ message.file_name or 'Download File' }}
+                                            </a>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                                
+                                {% if message.content %}
+                                <div>{{ message.content }}</div>
+                                {% endif %}
+                                
+                                <div class="message-time text-end">
+                                    {{ message.created_at.strftime('%H:%M') }}
+                                    {% if message.sender_id == session['user_id'] %}
+                                        <i class="fas fa-check {{ 'text-primary' if message.is_read else 'text-muted' }} ms-1"></i>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-comments fa-3x text-muted mb-3"></i>
+                            <h6 class="text-muted">No messages yet</h6>
+                            <p class="text-muted small">Start the conversation!</p>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="typing-indicator d-none" id="typingIndicator">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <span class="ms-2 small text-muted">Someone is typing...</span>
+                    </div>
+                </div>
+                
+                
+                <div class="border-top p-3">
+                    <form id="messageForm" enctype="multipart/form-data">
+                        <div class="d-flex align-items-end gap-2">
+                           
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary" type="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-paperclip"></i>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li>
+                                        <label class="dropdown-item cursor-pointer">
+                                            <i class="fas fa-image me-2"></i>Image
+                                            <input type="file" name="file" accept="image/*" class="d-none" onchange="handleFileSelect(this)">
+                                        </label>
+                                    </li>
+                                    <li>
+                                        <label class="dropdown-item cursor-pointer">
+                                            <i class="fas fa-video me-2"></i>Video
+                                            <input type="file" name="file" accept="video/*" class="d-none" onchange="handleFileSelect(this)">
+                                        </label>
+                                    </li>
+                                    <li>
+                                        <label class="dropdown-item cursor-pointer">
+                                            <i class="fas fa-music me-2"></i>Audio
+                                            <input type="file" name="file" accept="audio/*" class="d-none" onchange="handleFileSelect(this)">
+                                        </label>
+                                    </li>
+                                    <li>
+                                        <label class="dropdown-item cursor-pointer">
+                                            <i class="fas fa-file me-2"></i>Document
+                                            <input type="file" name="file" accept=".pdf,.doc,.docx,.txt,.rtf" class="d-none" onchange="handleFileSelect(this)">
+                                        </label>
+                                    </li>
+                                </ul>
+                            </div>
+                            
+                            <!-- File Preview -->
+                            <div id="filePreview" class="d-none">
+                                <div class="alert alert-info d-flex align-items-center mb-0">
+                                    <i class="fas fa-file me-2"></i>
+                                    <span id="fileName"></span>
+                                    <button type="button" class="btn-close ms-auto" onclick="removeFile()"></button>
+                                </div>
+                            </div>
+                            
+                        
+                            <div class="flex-grow-1">
+                                <input type="text" 
+                                       class="form-control chat-input" 
+                                       placeholder="Type a message..." 
+                                       name="content" 
+                                       id="messageInput"
+                                       autocomplete="off">
+                            </div>
+                            
+                           
+                            <button type="submit" class="btn btn-primary btn-send">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="messageStatusModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Message Status</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex align-items-center mb-2">
+                    <i class="fas fa-check text-muted me-2"></i>
+                    <span>Sent</span>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <i class="fas fa-check-double text-primary me-2"></i>
+                    <span>Delivered</span>
+                </div>
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-check-double text-success me-2"></i>
+                    <span>Read</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cursor-pointer {
+        cursor: pointer;
+    }
+    
+    .min-width-0 {
+        min-width: 0;
+    }
+    
+    #messagesContainer {
+        scroll-behavior: smooth;
+    }
+    
+    .message-bubble:hover {
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .chat-input:focus {
+        outline: none !important;
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
+    }
+    
+    .file-preview {
+        transition: all 0.3s ease;
+    }
+    
+    .file-preview:hover {
+        transform: scale(1.02);
+    }
+    
+    .chat-room-item {
+        cursor: pointer;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+    
+    .chat-room-item:hover {
+        background-color: #f8f9fa !important;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let selectedFile = null;
+
+    // Auto-scroll to bottom of messages
+    function scrollToBottom() {
+        const container = document.getElementById('messagesContainer');
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+            console.log('Scrolled to bottom');
+        }
+    }
+    
+    // Scroll to bottom on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        scrollToBottom();
+    });
+    
+    // Handle file selection
+    function handleFileSelect(input) {
+        if (input.files && input.files[0]) {
+            selectedFile = input.files[0];
+            
+            // Check file size (10MB limit)
+            if (selectedFile.size > 10 * 1024 * 1024) {
+                alert('File size must be less than 10MB');
+                return;
+            }
+            
+            // Show file preview
+            document.getElementById('fileName').textContent = selectedFile.name;
+            document.getElementById('filePreview').classList.remove('d-none');
+        }
+    }
+    
+    // Remove selected file
+    function removeFile() {
+        selectedFile = null;
+        document.getElementById('filePreview').classList.add('d-none');
+        
+        // Clear all file inputs
+        const fileInputs = document.querySelectorAll('input[type="file"]');
+        fileInputs.forEach(input => input.value = '');
+    }
+    
+    // Handle message form submission
+    document.getElementById('messageForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const messageInput = document.getElementById('messageInput');
+        const content = messageInput.value.trim();
+        
+        if (!content && !selectedFile) {
+            return;
+        }
+        
+        // Create FormData
+        const formData = new FormData();
+        formData.append('content', content);
+        formData.append('room_id', '{{ room.id }}');
+        
+        if (selectedFile) {
+            formData.append('file', selectedFile);
+        }
+        
+        // Debug: Log what we're sending
+        console.log('Sending message:', {
+            content: content,
+            room_id: '{{ room.id }}',
+            hasFile: !!selectedFile
+        });
+        
+        // Send message via AJAX
+        fetch('/api/send-message', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrf_token]')?.value || ''
+            }
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Response data:', data);
+            
+            if (data.success) {
+                // Clear form
+                messageInput.value = '';
+                removeFile();
+                
+                // Create message object for immediate display
+                const messageForDisplay = {
+                    id: data.message.id || Date.now(),
+                    content: data.message.content || content,
+                    sender_id: {{ session['user_id'] }},
+                    sender: {
+                        username: '{{ session.get("username", "You") }}',
+                        avatar_url: '{{ session.get("avatar_url", "") }}'
+                    },
+                    created_at: data.message.created_at || new Date().toISOString(),
+                    file_url: data.message.file_url || null,
+                    file_name: data.message.file_name || null,
+                    is_read: false
+                };
+                
+                console.log('Adding message to chat:', messageForDisplay);
+                
+                // Add message to chat immediately
+                addMessageToChat(messageForDisplay);
+                scrollToBottom();
+            } else {
+                console.error('Server error:', data.error);
+                alert('Error sending message: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Network error:', error);
+            alert('Error sending message: ' + error.message);
+        });
+    });
+    
+    // Add message to chat UI
+    function addMessageToChat(message) {
+        console.log('addMessageToChat called with:', message);
+        
+        const container = document.getElementById('messagesContainer');
+        if (!container) {
+            console.error('Messages container not found!');
+            return;
+        }
+        
+        // Remove "no messages" placeholder if it exists
+        const noMessagesDiv = container.querySelector('.text-center.py-5');
+        if (noMessagesDiv) {
+            console.log('Removing no messages placeholder');
+            noMessagesDiv.remove();
+        }
+        
+        // Check if message already exists (to avoid duplicates)
+        const existingMessage = container.querySelector(`[data-message-id="${message.id}"]`);
+        if (existingMessage) {
+            console.log('Message already exists, skipping');
+            return;
+        }
+        
+        const messageElement = createMessageElement(message);
+        console.log('Created message element:', messageElement);
+        
+        container.appendChild(messageElement);
+        console.log('Message added to container');
+        
+        // Force scroll to bottom
+        setTimeout(() => {
+            scrollToBottom();
+        }, 100);
+    }
+    
+    // Create message element
+    function createMessageElement(message) {
+        console.log('createMessageElement called with:', message);
+        
+        const div = document.createElement('div');
+        const isOwn = message.sender_id === {{ session['user_id'] }};
+        
+        div.className = `d-flex mb-3 ${isOwn ? 'justify-content-end' : 'justify-content-start'}`;
+        div.setAttribute('data-message-id', message.id);
+        
+        let avatarHtml = '';
+        if (!isOwn) {
+            avatarHtml = `
+                <div class="me-2">
+                    <img src="${message.sender.avatar_url || 'https://via.placeholder.com/32'}" 
+                         alt="User Avatar" class="rounded-circle" style="width: 32px; height: 32px;">
+                </div>
+            `;
+        }
+        
+        // Handle file attachments
+        let fileHtml = '';
+        if (message.file_url) {
+            const fileName = message.file_name || 'File';
+            const fileUrl = message.file_url;
+            
+            // Check if it's an image
+            if (fileUrl.toLowerCase().match(/\.(jpg|jpeg|png|gif|bmp|webp)$/)) {
+                fileHtml = `
+                    <div class="mb-2">
+                        <img src="${fileUrl}" alt="Image" class="file-preview img-fluid rounded" 
+                             style="max-width: 200px; max-height: 200px; cursor: pointer;"
+                             onclick="window.open('${fileUrl}', '_blank')">
+                    </div>
+                `;
+            } 
+            //  video
+            else if (fileUrl.toLowerCase().match(/\.(mp4|avi|mov|wmv|flv|webm)$/)) {
+                fileHtml = `
+                    <div class="mb-2">
+                        <video controls class="file-preview" style="max-width: 200px;">
+                            <source src="${fileUrl}" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                `;
+            }
+          
+            else if (fileUrl.toLowerCase().match(/\.(mp3|wav|ogg|aac|m4a)$/)) {
+                fileHtml = `
+                    <div class="mb-2">
+                        <audio controls class="w-100">
+                            <source src="${fileUrl}" type="audio/mpeg">
+                            Your browser does not support the audio element.
+                        </audio>
+                    </div>
+                `;
+            }
+   
+            else {
+                fileHtml = `
+                    <div class="mb-2">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-file me-2"></i>
+                            <a href="${fileUrl}" target="_blank" class="text-decoration-none">
+                                ${fileName}
+                            </a>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        const timestamp = message.created_at ? 
+            new Date(message.created_at).toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'}) : 
+            new Date().toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'});
+        
+        div.innerHTML = `
+            ${avatarHtml}
+            <div class="message-bubble ${isOwn ? 'message-sent' : 'message-received'}">
+                ${!isOwn ? `<div class="fw-bold small text-muted mb-1">${message.sender.username}</div>` : ''}
+                ${fileHtml}
+                ${message.content ? `<div>${message.content}</div>` : ''}
+                <div class="message-time text-end">
+                    ${timestamp}
+                    ${isOwn ? '<i class="fas fa-check text-muted ms-1"></i>' : ''}
+                </div>
+            </div>
+        `;
+        
+        console.log('Created message HTML:', div.innerHTML);
+        
+        return div;
+    }
+
+    document.getElementById('messageInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            document.getElementById('messageForm').dispatchEvent(new Event('submit'));
+        }
+    });
+    
+    let typingTimer;
+    document.getElementById('messageInput').addEventListener('input', function() {
+
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(() => {
+
+        }, 2000);
+    });
+    
+
+    let lastMessageTimestamp = null;
+    
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const messages = document.querySelectorAll('[data-message-id]');
+        if (messages.length > 0) {
+            const lastMessage = messages[messages.length - 1];
+            const timeElement = lastMessage.querySelector('.message-time');
+            if (timeElement) {
+                lastMessageTimestamp = timeElement.textContent;
+            }
+        }
+    });
+    
+    // Auto-refresh messages
+    setInterval(() => {
+        fetch(`/api/messages/{{ room.id }}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success && data.messages && data.messages.length > 0) {
+        
+                const existingMessageIds = new Set();
+                document.querySelectorAll('[data-message-id]').forEach(el => {
+                    existingMessageIds.add(el.getAttribute('data-message-id'));
+                });
+                
+                // Add new messages
+                let hasNewMessages = false;
+                data.messages.forEach(message => {
+                    if (!existingMessageIds.has(message.id.toString())) {
+                        addMessageToChat(message);
+                        hasNewMessages = true;
+                    }
+                });
+                
+                if (hasNewMessages) {
+                    scrollToBottom();
+                }
+            }
+        })
+        .catch(error => console.error('Error fetching messages:', error));
+    }, 3000);
+</script>
+{% endblock %}

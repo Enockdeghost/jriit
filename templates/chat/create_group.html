@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-header bg-primary text-white">
+          <h4 class="mb-0">Create New Group Chat</h4>
+        </div>
+        <div class="card-body">
+          <form method="POST" action="{{ url_for('create_group_chat') }}">
+            <div class="mb-3">
+              <label for="groupName" class="form-label">Group Name</label>
+              <input type="text" class="form-control" id="groupName" name="group_name" required>
+            </div>
+            <div class="mb-3">
+              <label for="description" class="form-label">Description (Optional)</label>
+              <textarea class="form-control" id="description" name="description" rows="2"></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Add Participants</label>
+              <div class="border rounded p-2" style="max-height: 300px; overflow-y: auto;">
+                {% for u in available_users %}
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" 
+                         name="participants" value="{{ u.id }}" id="user-{{ u.id }}">
+                  <label class="form-check-label d-flex align-items-center" for="user-{{ u.id }}">
+                    <img src="{{ u.avatar_url or url_for('static', filename='default-avatar.png') }}" 
+                         class="rounded-circle me-2" width="32" height="32">
+                    {{ u.username }}
+                  </label>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="d-flex justify-content-end">
+              <a href="{{ url_for('chat_index') }}" class="btn btn-secondary me-2">Cancel</a>
+              <button type="submit" class="btn btn-primary">Create Group</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
