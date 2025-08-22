@@ -115,10 +115,9 @@ For questions or support, open an issue or contact [+255 684 444 239].
 
 - Flask Framework
 - Open-source libraries used
-- [Your Organization or Team Name]
 
 
 
 
-If you'd like an even more tailored or detailed README, just let me know!
+
 
