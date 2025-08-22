@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, make_response, send_from_directory, send_file, abort, Response
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import or_, and_
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, current_user, login_user, logout_user, login_required
 from werkzeug.utils import secure_filename
@@ -20,6 +21,9 @@ from io import StringIO
 import logging
 import uuid
 import mimetypes
+import secrets
+import random
+import string
 from datetime import datetime
 import os
 
@@ -294,6 +298,183 @@ class AttendanceException(db.Model):
     # Relationships
     lesson = db.relationship('Lesson', backref='exceptions')
     student = db.relationship('Student', backref='attendance_exceptions')
+    
+    
+class QuestionBank(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    question_text = db.Column(db.Text, nullable=False)
+    question_type = db.Column(db.String(20), nullable=False)  # mcq, true_false, fill_blank, essay, file_upload
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+    difficulty_level = db.Column(db.String(10), default='medium')  # easy, medium, hard
+    marks = db.Column(db.Float, default=1.0)
+    
+    # Question content
+    question_image = db.Column(db.String(200), nullable=True)
+    question_audio = db.Column(db.String(200), nullable=True)
+    question_video = db.Column(db.String(200), nullable=True)
+    
+    # MCQ specific fields
+    option_a = db.Column(db.Text, nullable=True)
+    option_b = db.Column(db.Text, nullable=True)
+    option_c = db.Column(db.Text, nullable=True)
+    option_d = db.Column(db.Text, nullable=True)
+    correct_answer = db.Column(db.String(10), nullable=True)  # For MCQ: A,B,C,D; For T/F: True/False
+    
+    # Essay/Fill blank answers
+    model_answer = db.Column(db.Text, nullable=True)
+    keywords = db.Column(db.Text, nullable=True)  # JSON array of keywords for auto-grading
+    
+    # Meta data
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True)
+    category = db.Column(db.String(100), nullable=True)
+    
+    # Relationships
+    subject = db.relationship('Subject', backref='questions')
+    creator = db.relationship('User', backref='created_questions')
+
+class Exam(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+    
+    # Timing
+    start_time = db.Column(db.DateTime, nullable=False)
+    end_time = db.Column(db.DateTime, nullable=False)
+    duration = db.Column(db.Integer, nullable=False)  # Duration in minutes
+    
+    # Exam configuration
+    total_marks = db.Column(db.Float, default=100.0)
+    passing_marks = db.Column(db.Float, default=40.0)
+    max_attempts = db.Column(db.Integer, default=1)
+    
+    # Security settings
+    randomize_questions = db.Column(db.Boolean, default=True)
+    randomize_options = db.Column(db.Boolean, default=True)
+    show_results_immediately = db.Column(db.Boolean, default=False)
+    allow_backtrack = db.Column(db.Boolean, default=True)
+    
+    # Proctoring settings
+    enable_proctoring = db.Column(db.Boolean, default=False)
+    webcam_required = db.Column(db.Boolean, default=False)
+    screen_recording = db.Column(db.Boolean, default=False)
+    browser_lockdown = db.Column(db.Boolean, default=False)
+    
+    # Access control
+    exam_password = db.Column(db.String(100), nullable=True)
+    ip_restrictions = db.Column(db.Text, nullable=True)  # JSON array of allowed IPs
+    
+    # Targeting
+    target_courses = db.Column(db.Text, nullable=True)  # JSON array
+    target_semesters = db.Column(db.Text, nullable=True)  # JSON array
+    specific_students = db.Column(db.Text, nullable=True)  # JSON array of student IDs
+    
+    # Status and meta
+    status = db.Column(db.String(20), default='draft')  # draft, scheduled, active, completed, cancelled
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Auto-grading settings
+    auto_grade_mcq = db.Column(db.Boolean, default=True)
+    auto_grade_tf = db.Column(db.Boolean, default=True)
+    auto_grade_fillblank = db.Column(db.Boolean, default=False)
+    
+    # Relationships
+    subject = db.relationship('Subject', backref='exams')
+    creator = db.relationship('User', backref='created_exams')
+
+class ExamQuestion(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    exam_id = db.Column(db.Integer, db.ForeignKey('exam.id'), nullable=False)
+    question_id = db.Column(db.Integer, db.ForeignKey('question_bank.id'), nullable=False)
+    question_order = db.Column(db.Integer, nullable=False)
+    marks = db.Column(db.Float, nullable=False)
+    is_mandatory = db.Column(db.Boolean, default=True)
+    
+    # Relationships
+    exam = db.relationship('Exam', backref='exam_questions')
+    question = db.relationship('QuestionBank', backref='exam_questions')
+
+class ExamAttempt(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    exam_id = db.Column(db.Integer, db.ForeignKey('exam.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
+    attempt_number = db.Column(db.Integer, default=1)
+    
+    # Timing
+    start_time = db.Column(db.DateTime, default=datetime.utcnow)
+    end_time = db.Column(db.DateTime, nullable=True)
+    time_remaining = db.Column(db.Integer, nullable=True)  # Seconds remaining
+    
+    # Status
+    status = db.Column(db.String(20), default='in_progress')  # in_progress, completed, timed_out, submitted
+    
+    # Security and proctoring
+    browser_info = db.Column(db.Text, nullable=True)  # JSON
+    ip_address = db.Column(db.String(45), nullable=True)
+    violation_count = db.Column(db.Integer, default=0)
+    violation_log = db.Column(db.Text, nullable=True)  # JSON array
+    
+    # Results
+    total_score = db.Column(db.Float, default=0.0)
+    percentage = db.Column(db.Float, default=0.0)
+    grade = db.Column(db.String(2), nullable=True)
+    result_status = db.Column(db.String(20), nullable=True)  # pass, fail, pending
+    
+    # Grading
+    auto_graded = db.Column(db.Boolean, default=False)
+    manually_graded = db.Column(db.Boolean, default=False)
+    graded_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    graded_at = db.Column(db.DateTime, nullable=True)
+    
+    # Relationships
+    exam = db.relationship('Exam', backref='attempts')
+    student = db.relationship('Student', backref='exam_attempts')
+    grader = db.relationship('User', backref='graded_attempts')
+
+class ExamAnswer(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    attempt_id = db.Column(db.Integer, db.ForeignKey('exam_attempt.id'), nullable=False)
+    question_id = db.Column(db.Integer, db.ForeignKey('question_bank.id'), nullable=False)
+    
+    # Answer content
+    answer_text = db.Column(db.Text, nullable=True)
+    selected_option = db.Column(db.String(10), nullable=True)  # A, B, C, D for MCQ
+    file_upload_path = db.Column(db.String(200), nullable=True)
+    
+    # Scoring
+    is_correct = db.Column(db.Boolean, nullable=True)
+    marks_awarded = db.Column(db.Float, default=0.0)
+    max_marks = db.Column(db.Float, nullable=False)
+    
+    # Manual grading
+    manual_score = db.Column(db.Float, nullable=True)
+    feedback = db.Column(db.Text, nullable=True)
+    graded_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    graded_at = db.Column(db.DateTime, nullable=True)
+    
+    # Time tracking
+    time_spent = db.Column(db.Integer, default=0)  # Seconds spent on this question
+    answered_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    attempt = db.relationship('ExamAttempt', backref='answers')
+    question = db.relationship('QuestionBank', backref='student_answers')
+
+class ProctoringEvent(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    attempt_id = db.Column(db.Integer, db.ForeignKey('exam_attempt.id'), nullable=False)
+    event_type = db.Column(db.String(50), nullable=False)  # tab_switch, fullscreen_exit, face_not_detected, multiple_faces, suspicious_behavior
+    event_data = db.Column(db.Text, nullable=True)  # JSON data
+    severity = db.Column(db.String(10), default='low')  # low, medium, high, critical
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    screenshot_path = db.Column(db.String(200), nullable=True)
+    
+    # Relationships
+    attempt = db.relationship('ExamAttempt', backref='proctoring_events')
 
 with app.app_context():
     # db.drop_all()
@@ -3235,6 +3416,901 @@ def admin_export_attendance(lesson_id, format):
         return redirect(url_for('admin_lesson_details', lesson_id=lesson_id))
 
 
+@app.route('/exams')
+@login_required
+@first_login_required
+@student_approved_required
+def student_exams():
+    """Display available exams for students"""
+    if session.get('role') != 'student':
+        return redirect(url_for('dashboard'))
+    
+    student = Student.query.filter_by(user_id=session['user_id']).first()
+    current_time = datetime.utcnow()
+    
+    # Get available exams for this student
+    available_exams = []
+    completed_exams = []
+    upcoming_exams = []
+    
+    # Query exams based on student's course and semester
+    exams = db.session.query(Exam).join(Subject).filter(
+        Exam.status == 'active',
+        or_(
+            and_(
+                Exam.target_courses.like(f'%"{student.course}"%'),
+                Exam.target_semesters.like(f'%{student.semester}%')
+            ),
+            Exam.target_courses.is_(None)
+        )
+    ).all()
+    
+    for exam in exams:
+        # Check if student has already attempted
+        attempt = ExamAttempt.query.filter_by(
+            exam_id=exam.id,
+            student_id=student.id
+        ).first()
+        
+        exam_info = {
+            'exam': exam,
+            'attempt': attempt,
+            'can_attempt': False,
+            'time_status': ''
+        }
+        
+        if current_time < exam.start_time:
+            exam_info['time_status'] = 'upcoming'
+            upcoming_exams.append(exam_info)
+        elif current_time > exam.end_time:
+            exam_info['time_status'] = 'expired'
+            completed_exams.append(exam_info)
+        else:
+            if not attempt:
+                exam_info['can_attempt'] = True
+                exam_info['time_status'] = 'available'
+                available_exams.append(exam_info)
+            elif attempt.status == 'completed' and attempt.attempt_number < exam.max_attempts:
+                exam_info['can_attempt'] = True
+                exam_info['time_status'] = 'retake_available'
+                available_exams.append(exam_info)
+            else:
+                exam_info['time_status'] = 'completed'
+                completed_exams.append(exam_info)
+    
+    return render_template('student_exams.html',
+                         available_exams=available_exams,
+                         completed_exams=completed_exams,
+                         upcoming_exams=upcoming_exams,
+                         student=student,
+                         current_time=current_time)
+
+@app.route('/exam/<int:exam_id>/details')
+@login_required
+@role_required(['student'])
+@student_approved_required
+def exam_details(exam_id):
+    """Show exam details and requirements"""
+    exam = Exam.query.get_or_404(exam_id)
+    student = Student.query.filter_by(user_id=session['user_id']).first()
+    
+    # Check if student is eligible
+    if not is_student_eligible_for_exam(student, exam):
+        flash('You are not eligible for this exam', 'error')
+        return redirect(url_for('student_exams'))
+    
+    # Get previous attempts
+    attempts = ExamAttempt.query.filter_by(
+        exam_id=exam_id,
+        student_id=student.id
+    ).order_by(ExamAttempt.attempt_number.desc()).all()
+    
+    return render_template('exam_details.html',
+                         exam=exam,
+                         student=student,
+                         attempts=attempts,
+                         current_time=datetime.utcnow())
+
+@app.route('/exam/<int:exam_id>/start', methods=['GET', 'POST'])
+@login_required
+@role_required(['student'])
+@student_approved_required
+def start_exam(exam_id):
+    """Start exam after verification"""
+    exam = Exam.query.get_or_404(exam_id)
+    student = Student.query.filter_by(user_id=session['user_id']).first()
+    
+    if request.method == 'POST':
+        # Verify exam password if required
+        if exam.exam_password:
+            if request.form.get('exam_password') != exam.exam_password:
+                flash('Invalid exam password', 'error')
+                return render_template('start_exam.html', exam=exam)
+        
+        # Check time window
+        current_time = datetime.utcnow()
+        if current_time < exam.start_time or current_time > exam.end_time:
+            flash('Exam is not available at this time', 'error')
+            return redirect(url_for('student_exams'))
+        
+        # Check attempts
+        previous_attempts = ExamAttempt.query.filter_by(
+            exam_id=exam_id,
+            student_id=student.id
+        ).count()
+        
+        if previous_attempts >= exam.max_attempts:
+            flash('You have exceeded the maximum number of attempts', 'error')
+            return redirect(url_for('student_exams'))
+        
+        # Create new attempt
+        attempt = ExamAttempt(
+            exam_id=exam_id,
+            student_id=student.id,
+            attempt_number=previous_attempts + 1,
+            browser_info=json.dumps({
+                'user_agent': request.headers.get('User-Agent'),
+                'platform': request.form.get('platform', 'unknown')
+            }),
+            ip_address=request.remote_addr
+        )
+        db.session.add(attempt)
+        db.session.commit()
+        
+        # Log activity
+        log_activity(session['user_id'], 'Exam Started', 
+                    f'Started exam: {exam.title}', 
+                    request.remote_addr)
+        
+        return redirect(url_for('take_exam', attempt_id=attempt.id))
+    
+    return render_template('start_exam.html', exam=exam, student=student)
+
+@app.route('/exam/take/<int:attempt_id>')
+@login_required
+@role_required(['student'])
+@student_approved_required
+def take_exam(attempt_id):
+    """Main exam taking interface"""
+    attempt = ExamAttempt.query.get_or_404(attempt_id)
+    
+    # Verify ownership
+    student = Student.query.filter_by(user_id=session['user_id']).first()
+    if attempt.student_id != student.id:
+        abort(403)
+    
+    if attempt.status != 'in_progress':
+        flash('This exam attempt is no longer active', 'error')
+        return redirect(url_for('student_exams'))
+    
+    exam = attempt.exam
+    
+    # Check if time expired
+    elapsed_time = (datetime.utcnow() - attempt.start_time).total_seconds()
+    if elapsed_time > (exam.duration * 60):
+        # Auto-submit exam
+        submit_exam_automatically(attempt)
+        flash('Exam time expired and has been automatically submitted', 'warning')
+        return redirect(url_for('exam_result', attempt_id=attempt_id))
+    
+    # Get questions for this exam (randomized if enabled)
+    questions = get_exam_questions(exam, attempt)
+    
+    # Get existing answers
+    existing_answers = {
+        answer.question_id: answer 
+        for answer in attempt.answers
+    }
+    
+    # Calculate time remaining
+    time_remaining = max(0, (exam.duration * 60) - elapsed_time)
+    
+    return render_template('take_exam.html',
+                         attempt=attempt,
+                         exam=exam,
+                         questions=questions,
+                         existing_answers=existing_answers,
+                         time_remaining=int(time_remaining),
+                         current_question=1,
+                         total_questions=len(questions))
+
+@app.route('/exam/save-answer', methods=['POST'])
+@login_required
+@role_required(['student'])
+def save_exam_answer():
+    """Save or update answer for a question"""
+    data = request.get_json()
+    
+    attempt_id = data.get('attempt_id')
+    question_id = data.get('question_id')
+    answer_data = data.get('answer_data')
+    
+    attempt = ExamAttempt.query.get_or_404(attempt_id)
+    
+    # Verify ownership
+    student = Student.query.filter_by(user_id=session['user_id']).first()
+    if attempt.student_id != student.id:
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    
+    if attempt.status != 'in_progress':
+        return jsonify({'success': False, 'error': 'Exam is not active'}), 400
+    
+    # Find or create answer
+    answer = ExamAnswer.query.filter_by(
+        attempt_id=attempt_id,
+        question_id=question_id
+    ).first()
+    
+    if not answer:
+        question = QuestionBank.query.get(question_id)
+        answer = ExamAnswer(
+            attempt_id=attempt_id,
+            question_id=question_id,
+            max_marks=question.marks
+        )
+        db.session.add(answer)
+    
+    # Update answer based on question type
+    question = QuestionBank.query.get(question_id)
+    
+    if question.question_type in ['mcq', 'true_false']:
+        answer.selected_option = answer_data.get('selected_option')
+        # Auto-grade if enabled
+        if question.question_type == 'mcq' and attempt.exam.auto_grade_mcq:
+            is_correct = answer.selected_option == question.correct_answer
+            answer.is_correct = is_correct
+            answer.marks_awarded = question.marks if is_correct else 0
+        elif question.question_type == 'true_false' and attempt.exam.auto_grade_tf:
+            is_correct = answer.selected_option == question.correct_answer
+            answer.is_correct = is_correct
+            answer.marks_awarded = question.marks if is_correct else 0
+    
+    elif question.question_type in ['fill_blank', 'essay']:
+        answer.answer_text = answer_data.get('answer_text')
+        # Auto-grade fill blanks if enabled and keywords provided
+        if (question.question_type == 'fill_blank' and 
+            attempt.exam.auto_grade_fillblank and 
+            question.keywords):
+            keywords = json.loads(question.keywords)
+            student_answer = answer.answer_text.lower()
+            matches = sum(1 for keyword in keywords if keyword.lower() in student_answer)
+            score_percentage = matches / len(keywords) if keywords else 0
+            answer.marks_awarded = question.marks * score_percentage
+    
+    answer.answered_at = datetime.utcnow()
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
+@app.route('/exam/submit/<int:attempt_id>', methods=['POST'])
+@login_required
+@role_required(['student'])
+def submit_exam(attempt_id):
+    """Submit exam for grading"""
+    attempt = ExamAttempt.query.get_or_404(attempt_id)
+    
+    # Verify ownership
+    student = Student.query.filter_by(user_id=session['user_id']).first()
+    if attempt.student_id != student.id:
+        abort(403)
+    
+    if attempt.status != 'in_progress':
+        flash('Exam is not in progress', 'error')
+        return redirect(url_for('student_exams'))
+    
+    # Mark as completed
+    attempt.end_time = datetime.utcnow()
+    attempt.status = 'completed'
+    
+    # Calculate scores
+    calculate_exam_score(attempt)
+    
+    db.session.commit()
+    
+    # Log activity
+    log_activity(session['user_id'], 'Exam Submitted', 
+                f'Submitted exam: {attempt.exam.title}', 
+                request.remote_addr)
+    
+    flash('Exam submitted successfully!', 'success')
+    return redirect(url_for('exam_result', attempt_id=attempt_id))
+
+@app.route('/exam/result/<int:attempt_id>')
+@login_required
+@role_required(['student'])
+@student_approved_required
+def exam_result(attempt_id):
+    """Show exam results"""
+    attempt = ExamAttempt.query.get_or_404(attempt_id)
+    
+    # Verify ownership
+    student = Student.query.filter_by(user_id=session['user_id']).first()
+    if attempt.student_id != student.id:
+        abort(403)
+    
+    if attempt.status == 'in_progress':
+        flash('Exam is still in progress', 'error')
+        return redirect(url_for('take_exam', attempt_id=attempt_id))
+    
+    # Get detailed results
+    answers_with_questions = db.session.query(ExamAnswer, QuestionBank).join(
+        QuestionBank, ExamAnswer.question_id == QuestionBank.id
+    ).filter(ExamAnswer.attempt_id == attempt_id).all()
+    
+    # Calculate statistics
+    total_questions = len(answers_with_questions)
+    correct_answers = sum(1 for answer, _ in answers_with_questions if answer.is_correct)
+    
+    return render_template('exam_result.html',
+                         attempt=attempt,
+                         answers_with_questions=answers_with_questions,
+                         total_questions=total_questions,
+                         correct_answers=correct_answers,
+                         show_answers=attempt.exam.show_results_immediately)
+
+# HELPER FUNCTIONS
+
+def is_student_eligible_for_exam(student, exam):
+    """Check if student is eligible for the exam"""
+    # Check course eligibility
+    if exam.target_courses:
+        target_courses = json.loads(exam.target_courses)
+        if student.course not in target_courses:
+            return False
+    
+    # Check semester eligibility
+    if exam.target_semesters:
+        target_semesters = json.loads(exam.target_semesters)
+        if student.semester not in target_semesters:
+            return False
+    
+    # Check specific students
+    if exam.specific_students:
+        specific_students = json.loads(exam.specific_students)
+        if student.id not in specific_students:
+            return False
+    
+    return True
+
+def get_exam_questions(exam, attempt):
+    """Get questions for exam, with randomization if enabled"""
+    base_query = db.session.query(ExamQuestion, QuestionBank).join(
+        QuestionBank, ExamQuestion.question_id == QuestionBank.id
+    ).filter(ExamQuestion.exam_id == exam.id)
+    
+    if exam.randomize_questions:
+        questions = base_query.order_by(func.random()).all()
+    else:
+        questions = base_query.order_by(ExamQuestion.question_order).all()
+    
+    # Randomize MCQ options if enabled
+    if exam.randomize_options:
+        for exam_question, question in questions:
+            if question.question_type == 'mcq':
+                options = [
+                    ('A', question.option_a),
+                    ('B', question.option_b),
+                    ('C', question.option_c),
+                    ('D', question.option_d)
+                ]
+                random.shuffle(options)
+                # Store randomized options (you might want to save this mapping)
+    
+    return questions
+
+def calculate_exam_score(attempt):
+    """Calculate total score for exam attempt"""
+    answers = ExamAnswer.query.filter_by(attempt_id=attempt.id).all()
+    
+    total_score = sum(answer.marks_awarded for answer in answers)
+    max_possible = sum(answer.max_marks for answer in answers)
+    
+    if max_possible > 0:
+        percentage = (total_score / max_possible) * 100
+    else:
+        percentage = 0
+    
+    # Determine grade and pass/fail
+    grade, _ = calculate_grade_and_gpa(percentage)
+    result_status = 'pass' if percentage >= attempt.exam.passing_marks else 'fail'
+    
+    # Update attempt
+    attempt.total_score = total_score
+    attempt.percentage = round(percentage, 2)
+    attempt.grade = grade
+    attempt.result_status = result_status
+    
+    # Check if all questions are auto-gradable
+    questions_need_manual_grading = db.session.query(ExamAnswer).join(
+        QuestionBank, ExamAnswer.question_id == QuestionBank.id
+    ).filter(
+        ExamAnswer.attempt_id == attempt.id,
+        QuestionBank.question_type.in_(['essay', 'file_upload'])
+    ).count()
+    
+    if questions_need_manual_grading == 0:
+        attempt.auto_graded = True
+    
+    db.session.commit()
+
+def submit_exam_automatically(attempt):
+    """Auto-submit exam when time expires"""
+    attempt.end_time = datetime.utcnow()
+    attempt.status = 'timed_out'
+    calculate_exam_score(attempt)
+    db.session.commit()
+
+# TEACHER EXAM MANAGEMENT ROUTES
+
+@app.route('/teacher/exams')
+@login_required
+@role_required(['teacher'])
+@first_login_required
+def teacher_exams():
+    """List exams created by teacher"""
+    teacher = Teacher.query.filter_by(user_id=session['user_id']).first()
+    
+    exams = db.session.query(Exam).join(Subject).filter(
+        Subject.teacher_id == teacher.id
+    ).order_by(Exam.created_at.desc()).all()
+    
+    return render_template('teacher_exams.html', exams=exams, teacher=teacher)
+
+@app.route('/teacher/exam/create', methods=['GET', 'POST'])
+@login_required
+@role_required(['teacher'])
+@first_login_required
+def create_exam():
+    """Create new exam"""
+    teacher = Teacher.query.filter_by(user_id=session['user_id']).first()
+    subjects = Subject.query.filter_by(teacher_id=teacher.id, is_active=True).all()
+    
+    if request.method == 'POST':
+        # Create exam
+        exam = Exam(
+            title=request.form['title'],
+            description=request.form.get('description'),
+            subject_id=request.form['subject_id'],
+            start_time=datetime.strptime(request.form['start_time'], '%Y-%m-%dT%H:%M'),
+            end_time=datetime.strptime(request.form['end_time'], '%Y-%m-%dT%H:%M'),
+            duration=int(request.form['duration']),
+            total_marks=float(request.form.get('total_marks', 100)),
+            passing_marks=float(request.form.get('passing_marks', 40)),
+            max_attempts=int(request.form.get('max_attempts', 1)),
+            randomize_questions=bool(request.form.get('randomize_questions')),
+            randomize_options=bool(request.form.get('randomize_options')),
+            show_results_immediately=bool(request.form.get('show_results_immediately')),
+            allow_backtrack=bool(request.form.get('allow_backtrack')),
+            enable_proctoring=bool(request.form.get('enable_proctoring')),
+            webcam_required=bool(request.form.get('webcam_required')),
+            browser_lockdown=bool(request.form.get('browser_lockdown')),
+            exam_password=request.form.get('exam_password'),
+            created_by=session['user_id']
+        )
+        
+        # Set targeting
+        target_courses = request.form.getlist('target_courses')
+        target_semesters = [int(s) for s in request.form.getlist('target_semesters')]
+        
+        if target_courses:
+            exam.target_courses = json.dumps(target_courses)
+        if target_semesters:
+            exam.target_semesters = json.dumps(target_semesters)
+        
+        db.session.add(exam)
+        db.session.commit()
+        
+        flash('Exam created successfully!', 'success')
+        return redirect(url_for('add_exam_questions', exam_id=exam.id))
+    
+    return render_template('create_exam.html', subjects=subjects, courses=COURSES)
+
+@app.route('/teacher/exam/<int:exam_id>/questions', methods=['GET', 'POST'])
+@login_required
+@role_required(['teacher'])
+def add_exam_questions(exam_id):
+    """Add questions to exam"""
+    exam = Exam.query.get_or_404(exam_id)
+    
+    # Verify ownership
+    teacher = Teacher.query.filter_by(user_id=session['user_id']).first()
+    if exam.subject.teacher_id != teacher.id:
+        abort(403)
+    
+    if request.method == 'POST':
+        # Add question from question bank
+        question_ids = request.form.getlist('question_ids')
+        for i, question_id in enumerate(question_ids):
+            question = QuestionBank.query.get(question_id)
+            exam_question = ExamQuestion(
+                exam_id=exam_id,
+                question_id=question_id,
+                question_order=i + 1,
+                marks=question.marks
+            )
+            db.session.add(exam_question)
+        
+        db.session.commit()
+        flash('Questions added to exam successfully!', 'success')
+        return redirect(url_for('teacher_exams'))
+    
+    # Get available questions from question bank
+    available_questions = QuestionBank.query.filter_by(
+        subject_id=exam.subject_id,
+        is_active=True
+    ).all()
+    
+    # Get already added questions
+    added_questions = db.session.query(ExamQuestion, QuestionBank).join(
+        QuestionBank, ExamQuestion.question_id == QuestionBank.id
+    ).filter(ExamQuestion.exam_id == exam_id).all()
+    
+    return render_template('add_exam_questions.html',
+                         exam=exam,
+                         available_questions=available_questions,
+                         added_questions=added_questions)
+
+@app.route('/teacher/question-bank')
+@login_required
+@role_required(['teacher'])
+@first_login_required
+def question_bank():
+    """Manage question bank"""
+    teacher = Teacher.query.filter_by(user_id=session['user_id']).first()
+    subjects = Subject.query.filter_by(teacher_id=teacher.id, is_active=True).all()
+    
+    # Get questions created by this teacher
+    questions = QuestionBank.query.filter_by(
+        created_by=session['user_id'],
+        is_active=True
+    ).order_by(QuestionBank.created_at.desc()).all()
+    
+    return render_template('question_bank.html',
+                         questions=questions,
+                         subjects=subjects,
+                         teacher=teacher)
+
+@app.route('/teacher/question/create', methods=['GET', 'POST'])
+@login_required
+@role_required(['teacher'])
+@first_login_required
+def create_question():
+    """Create new question"""
+    teacher = Teacher.query.filter_by(user_id=session['user_id']).first()
+    subjects = Subject.query.filter_by(teacher_id=teacher.id, is_active=True).all()
+    
+    if request.method == 'POST':
+        question = QuestionBank(
+            question_text=request.form['question_text'],
+            question_type=request.form['question_type'],
+            subject_id=request.form['subject_id'],
+            difficulty_level=request.form.get('difficulty_level', 'medium'),
+            marks=float(request.form.get('marks', 1.0)),
+            category=request.form.get('category'),
+            created_by=session['user_id']
+        )
+        
+        # Handle question type specific fields
+        if question.question_type == 'mcq':
+            question.option_a = request.form['option_a']
+            question.option_b = request.form['option_b']
+            question.option_c = request.form['option_c']
+            question.option_d = request.form['option_d']
+            question.correct_answer = request.form['correct_answer']
+        
+        elif question.question_type == 'true_false':
+            question.correct_answer = request.form['correct_answer']
+        
+        elif question.question_type in ['fill_blank', 'essay']:
+            question.model_answer = request.form.get('model_answer')
+            keywords = request.form.get('keywords', '').split(',')
+            if keywords and keywords[0]:  # Check if keywords exist
+                question.keywords = json.dumps([k.strip() for k in keywords])
+        
+        db.session.add(question)
+        db.session.commit()
+        
+        log_activity(session['user_id'], 'Question Created',
+                    f'Created {question.question_type} question for {question.subject.subject_name}',
+                    request.remote_addr)
+        
+        flash('Question created successfully!', 'success')
+        return redirect(url_for('question_bank'))
+    
+    return render_template('create_question.html', subjects=subjects)
+
+@app.route('/teacher/exam/<int:exam_id>/results')
+@login_required
+@role_required(['teacher'])
+def exam_results_overview(exam_id):
+    """View exam results and analytics"""
+    exam = Exam.query.get_or_404(exam_id)
+    
+    # Verify ownership
+    teacher = Teacher.query.filter_by(user_id=session['user_id']).first()
+    if exam.subject.teacher_id != teacher.id:
+        abort(403)
+    
+    # Get all attempts for this exam
+    attempts = db.session.query(ExamAttempt, Student).join(
+        Student, ExamAttempt.student_id == Student.id
+    ).filter(
+        ExamAttempt.exam_id == exam_id,
+        ExamAttempt.status.in_(['completed', 'timed_out'])
+    ).order_by(ExamAttempt.total_score.desc()).all()
+    
+    # Calculate statistics
+    if attempts:
+        scores = [attempt.total_score for attempt, _ in attempts]
+        avg_score = sum(scores) / len(scores)
+        highest_score = max(scores)
+        lowest_score = min(scores)
+        pass_count = sum(1 for attempt, _ in attempts if attempt.result_status == 'pass')
+        pass_rate = (pass_count / len(attempts)) * 100
+    else:
+        avg_score = highest_score = lowest_score = pass_rate = 0
+    
+    # Grade distribution
+    grade_distribution = {}
+    for attempt, _ in attempts:
+        grade = attempt.grade or 'N/A'
+        grade_distribution[grade] = grade_distribution.get(grade, 0) + 1
+    
+    return render_template('exam_results_overview.html',
+                         exam=exam,
+                         attempts=attempts,
+                         avg_score=round(avg_score, 2),
+                         highest_score=highest_score,
+                         lowest_score=lowest_score,
+                         pass_rate=round(pass_rate, 2),
+                         grade_distribution=grade_distribution)
+
+@app.route('/teacher/exam/<int:exam_id>/grade')
+@login_required
+@role_required(['teacher'])
+def grade_exam(exam_id):
+    """Grade essay and subjective questions"""
+    exam = Exam.query.get_or_404(exam_id)
+    
+    # Verify ownership
+    teacher = Teacher.query.filter_by(user_id=session['user_id']).first()
+    if exam.subject.teacher_id != teacher.id:
+        abort(403)
+    
+    # Get answers that need manual grading
+    pending_answers = db.session.query(ExamAnswer, QuestionBank, Student).join(
+        QuestionBank, ExamAnswer.question_id == QuestionBank.id
+    ).join(
+        ExamAttempt, ExamAnswer.attempt_id == ExamAttempt.id
+    ).join(
+        Student, ExamAttempt.student_id == Student.id
+    ).filter(
+        ExamAttempt.exam_id == exam_id,
+        QuestionBank.question_type.in_(['essay', 'file_upload']),
+        ExamAnswer.graded_by.is_(None)
+    ).all()
+    
+    return render_template('grade_exam.html',
+                         exam=exam,
+                         pending_answers=pending_answers)
+
+@app.route('/teacher/grade-answer/<int:answer_id>', methods=['POST'])
+@login_required
+@role_required(['teacher'])
+def grade_answer(answer_id):
+    """Grade individual answer"""
+    answer = ExamAnswer.query.get_or_404(answer_id)
+    
+    # Verify ownership
+    teacher = Teacher.query.filter_by(user_id=session['user_id']).first()
+    exam = answer.attempt.exam
+    if exam.subject.teacher_id != teacher.id:
+        abort(403)
+    
+    # Update grade
+    manual_score = float(request.form['manual_score'])
+    feedback = request.form.get('feedback', '')
+    
+    if manual_score > answer.max_marks:
+        flash('Score cannot exceed maximum marks', 'error')
+        return redirect(url_for('grade_exam', exam_id=exam.id))
+    
+    answer.manual_score = manual_score
+    answer.marks_awarded = manual_score
+    answer.feedback = feedback
+    answer.graded_by = session['user_id']
+    answer.graded_at = datetime.utcnow()
+    
+    # Check if all answers for this attempt are graded
+    ungraded_count = ExamAnswer.query.join(QuestionBank).filter(
+        ExamAnswer.attempt_id == answer.attempt_id,
+        QuestionBank.question_type.in_(['essay', 'file_upload']),
+        ExamAnswer.graded_by.is_(None)
+    ).count()
+    
+    if ungraded_count == 0:
+        # Recalculate total score
+        calculate_exam_score(answer.attempt)
+        answer.attempt.manually_graded = True
+    
+    db.session.commit()
+    
+    flash('Answer graded successfully!', 'success')
+    return redirect(url_for('grade_exam', exam_id=exam.id))
+
+# ACADEMIC EXAM OVERSIGHT
+
+@app.route('/academic/exams')
+@login_required
+@role_required(['academic'])
+@first_login_required
+def academic_exam_overview():
+    """Academic oversight of all exams"""
+    # Get all exams in the system
+    exams = db.session.query(Exam, Subject, Teacher).join(
+        Subject, Exam.subject_id == Subject.id
+    ).join(
+        Teacher, Subject.teacher_id == Teacher.id
+    ).order_by(Exam.created_at.desc()).all()
+    
+    # Get exam statistics
+    total_exams = len(exams)
+    active_exams = sum(1 for exam, _, _ in exams if exam.status == 'active')
+    completed_exams = sum(1 for exam, _, _ in exams if exam.status == 'completed')
+    
+    return render_template('academic_exam_overview.html',
+                         exams=exams,
+                         total_exams=total_exams,
+                         active_exams=active_exams,
+                         completed_exams=completed_exams)
+
+@app.route('/academic/exam/<int:exam_id>/monitor')
+@login_required
+@role_required(['academic'])
+def monitor_exam(exam_id):
+    """Monitor ongoing exam"""
+    exam = Exam.query.get_or_404(exam_id)
+    
+    # Get active attempts
+    active_attempts = db.session.query(ExamAttempt, Student).join(
+        Student, ExamAttempt.student_id == Student.id
+    ).filter(
+        ExamAttempt.exam_id == exam_id,
+        ExamAttempt.status == 'in_progress'
+    ).all()
+    
+    # Get proctoring violations
+    violations = db.session.query(ProctoringEvent, Student).join(
+        ExamAttempt, ProctoringEvent.attempt_id == ExamAttempt.id
+    ).join(
+        Student, ExamAttempt.student_id == Student.id
+    ).filter(
+        ExamAttempt.exam_id == exam_id,
+        ProctoringEvent.severity.in_(['high', 'critical'])
+    ).order_by(ProctoringEvent.timestamp.desc()).all()
+    
+    return render_template('monitor_exam.html',
+                         exam=exam,
+                         active_attempts=active_attempts,
+                         violations=violations)
+
+# API ROUTES FOR EXAM FUNCTIONALITY
+
+@app.route('/api/exam/<int:attempt_id>/time-remaining')
+@login_required
+def get_time_remaining(attempt_id):
+    """Get remaining time for exam attempt"""
+    attempt = ExamAttempt.query.get_or_404(attempt_id)
+    
+    # Verify ownership
+    student = Student.query.filter_by(user_id=session['user_id']).first()
+    if attempt.student_id != student.id:
+        return jsonify({'error': 'Access denied'}), 403
+    
+    if attempt.status != 'in_progress':
+        return jsonify({'time_remaining': 0, 'status': attempt.status})
+    
+    elapsed_time = (datetime.utcnow() - attempt.start_time).total_seconds()
+    time_remaining = max(0, (attempt.exam.duration * 60) - elapsed_time)
+    
+    return jsonify({
+        'time_remaining': int(time_remaining),
+        'status': attempt.status
+    })
+
+@app.route('/api/exam/proctoring-event', methods=['POST'])
+@login_required
+def log_proctoring_event():
+    """Log proctoring violation"""
+    data = request.get_json()
+    
+    attempt_id = data.get('attempt_id')
+    event_type = data.get('event_type')
+    event_data = data.get('event_data', {})
+    severity = data.get('severity', 'low')
+    
+    attempt = ExamAttempt.query.get_or_404(attempt_id)
+    
+    # Verify ownership
+    student = Student.query.filter_by(user_id=session['user_id']).first()
+    if attempt.student_id != student.id:
+        return jsonify({'error': 'Access denied'}), 403
+    
+    # Create proctoring event
+    event = ProctoringEvent(
+        attempt_id=attempt_id,
+        event_type=event_type,
+        event_data=json.dumps(event_data),
+        severity=severity
+    )
+    db.session.add(event)
+    
+    # Update violation count
+    attempt.violation_count += 1
+    
+    # Auto-submit if too many critical violations
+    if severity == 'critical' and attempt.violation_count >= 3:
+        attempt.status = 'completed'
+        attempt.end_time = datetime.utcnow()
+        calculate_exam_score(attempt)
+        
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'action': 'exam_terminated',
+            'message': 'Exam terminated due to multiple violations'
+        })
+    
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
+@app.route('/api/exam/<int:exam_id>/questions')
+@login_required
+def get_exam_questions_api(exam_id):
+    """Get exam questions for AJAX loading"""
+    exam = Exam.query.get_or_404(exam_id)
+    
+    # Verify student access
+    student = Student.query.filter_by(user_id=session['user_id']).first()
+    if not is_student_eligible_for_exam(student, exam):
+        return jsonify({'error': 'Access denied'}), 403
+    
+    # Get active attempt
+    attempt = ExamAttempt.query.filter_by(
+        exam_id=exam_id,
+        student_id=student.id,
+        status='in_progress'
+    ).first()
+    
+    if not attempt:
+        return jsonify({'error': 'No active attempt'}), 400
+    
+    questions = get_exam_questions(exam, attempt)
+    
+    questions_data = []
+    for exam_question, question in questions:
+        question_data = {
+            'id': question.id,
+            'text': question.question_text,
+            'type': question.question_type,
+            'marks': question.marks,
+            'order': exam_question.question_order
+        }
+        
+        if question.question_type == 'mcq':
+            question_data['options'] = {
+                'A': question.option_a,
+                'B': question.option_b,
+                'C': question.option_c,
+                'D': question.option_d
+            }
+        
+        questions_data.append(question_data)
+    
+    return jsonify({'questions': questions_data})
+
+
 @app.errorhandler(500)
 def internal_error(e):
     print(f"error occured {str(e)}")
@@ -3253,5 +4329,8 @@ def internal_error(error):
     return render_template('errors/500.html'), 500
 
 if __name__ == '__main__':
-    # app.run(debug=True, host='0.0.0.0', port=5000)
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    if os.environ.get('FLASK_ENV') == 'production':
+        socketio.run(app, host='0.0.0.0', port=port)
+    else:
+        socketio.run(app, debug=True, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
