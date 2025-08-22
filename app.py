@@ -48,7 +48,7 @@ app.config['MAIL_USERNAME'] = 'your_email@gmail.com'
 app.config['MAIL_PASSWORD'] = 'your_email_password'   
 app.config['MAIL_DEFAULT_SENDER'] = 'your_email@gmail.com'  
 
-mail = Mail(app)  # <-- Initialize Flask-Mail
+mail = Mail(app) 
 
 socketio = SocketIO(app, cors_allowed_origins="*")
 
@@ -2641,26 +2641,6 @@ def export_attendance_csv(lesson, attendance_data):
     )
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 @app.route('/teacher/send-attendance-report/<int:lesson_id>', methods=['POST'])
 @login_required
 @role_required(['teacher'])
@@ -2804,51 +2784,6 @@ def send_to_students(lesson, attendance_data, message):
             app.logger.error(f"Failed to send to student {user.email}: {str(e)}")
 
 # ===== STUDENT ATTENDANCE ROUTES =====
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 @app.route('/student/lessons')
