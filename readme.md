@@ -5,7 +5,7 @@
 A robust, scalable, and feature-rich school management system built with Flask. Handles user authentication, role management, student results, attendance, notifications, calendar events, and more.
 
 ---
-# there are  some backend features and frontent work clear but not connect to base.html dont have link yet , 'attendance'
+there are  some backend features and frontent work clear but not connect to base.html dont have link yet , 'attendance'
 # add comment to each code you add
 ## Features
 
@@ -116,6 +116,7 @@ For questions or support, open an issue or contact [your email].
 - Flask Framework
 - Open-source libraries used
 - [Your Organization or Team Name]
+
 
 
 
