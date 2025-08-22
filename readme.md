@@ -107,7 +107,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## Contact
 
-For questions or support, open an issue or contact [your email].
+For questions or support, open an issue or contact [+255 684 444 239].
 
 ---
 
@@ -121,3 +121,4 @@ For questions or support, open an issue or contact [your email].
 
 
 If you'd like an even more tailored or detailed README, just let me know!
+
