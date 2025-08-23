@@ -482,7 +482,7 @@ with app.app_context():
     if not User.query.filter_by(role='admin').first():
         admin_user = User(
             username='admin',
-            password=generate_password_hash('admin123'),
+            password=generate_password_hash('callme123'),
             role='admin',
             first_login=False
         )
@@ -4334,3 +4334,4 @@ if __name__ == '__main__':
         socketio.run(app, host='0.0.0.0', port=port)
     else:
         socketio.run(app, debug=True, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
+
