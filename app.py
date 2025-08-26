@@ -9,6 +9,7 @@ from sqlalchemy import func
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_mail import Mail, Message  
 from datetime import datetime, timedelta
+
 import json
 import secrets
 import io
@@ -26,6 +27,9 @@ import random
 import string
 from datetime import datetime
 import os
+import time
+
+failed_attempts = {}
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
@@ -68,6 +72,8 @@ class User(db.Model):
     profile_picture = db.Column(db.String(200), default='default.png')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    login_attempts = db.Column(db.Integer, default=0)
+    lock_until = db.Column(db.DateTime)
 
 class Student(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -138,6 +144,8 @@ class ActivityLog(db.Model):
     action = db.Column(db.String(200), nullable=False)
     details = db.Column(db.Text, nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    activity = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.String(255))
     ip_address = db.Column(db.String(45), nullable=True)
     
     user = db.relationship('User', backref='activity_logs')
@@ -478,17 +486,27 @@ class ProctoringEvent(db.Model):
 
 with app.app_context():
     # db.drop_all()
-    db.create_all()
+    db.create_all()  
+    
     if not User.query.filter_by(role='admin').first():
+        admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
+        admin_password = os.environ.get('ADMIN_PASSWORD')
+        
+        if not admin_password:
+            if os.environ.get('FLASK_ENV') == 'production':
+                raise ValueError("Must set ADMIN_PASSWORD environment variable in production")
+            admin_password = 'admin123'  
+            print("WARNING: Using default password - change in production!")
+
         admin_user = User(
-            username='admin',
-            password=generate_password_hash('callme123'),
+            username=admin_username,
+            password=generate_password_hash(admin_password, method='pbkdf2:sha256'),
             role='admin',
-            first_login=False
+            first_login=True  
         )
         db.session.add(admin_user)
         db.session.commit()
-        print("Created default admin user")
+        print(f"Created admin user '{admin_username}'")
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
@@ -516,14 +534,24 @@ DEPARTMENTS = [
 ]
 
  
+# def log_activity(user_id, action, details=None, ip_address=None):
+#     """Log user activity"""
+#     log = ActivityLog(
+#         user_id=user_id,
+#         action=action,
+#         details=details,
+#         ip_address=ip_address,
+#         activity=ActivityLog
+#     )
+#     db.session.add(log)
+#     db.session.commit()
 def log_activity(user_id, action, details=None, ip_address=None):
-    """Log user activity"""
     log = ActivityLog(
         user_id=user_id,
         action=action,
         details=details,
-        ip_address=ip_address
-    )
+        ip_address=ip_address,
+        activity=action)
     db.session.add(log)
     db.session.commit()
 
@@ -597,6 +625,33 @@ def student_approved_required(f):
                 return redirect(url_for('pending_approval'))
         return f(*args, **kwargs)
     return decorated_function
+def check_lockout(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if request.method == 'POST' and 'username' in request.form:
+            username = request.form['username'].strip()
+            ip = request.remote_addr
+            
+            # Check if IP is locked
+            if ip in failed_attempts and failed_attempts[ip]['count'] >= 3:
+                elapsed = time.time() - failed_attempts[ip]['timestamp']
+                if elapsed < 30:  # 30 second lockout
+                    remaining = int(30 - elapsed)
+                    flash(f'Too many failed attempts. Please try again in {remaining} seconds.', 'error')
+                    return render_template('login.html')
+                else:
+                    # Reset after lockout period
+                    del failed_attempts[ip]
+            
+            # Check if user account is locked
+            user = User.query.filter_by(username=username).first()
+            if user and user.lock_until and user.lock_until > datetime.utcnow():
+                remaining = (user.lock_until - datetime.utcnow()).seconds
+                flash(f'Account temporarily locked. Please try again in {remaining} seconds.', 'error')
+                return render_template('login.html')
+            
+        return f(*args, **kwargs)
+    return decorated_function
 
 # MAIN ROUTE
 @app.route('/')
@@ -604,31 +659,73 @@ def index():
     return render_template('index.html')
 
 @app.route('/login', methods=['GET', 'POST'])
+@check_lockout
 def login():
     if request.method == 'POST':
         username = request.form['username'].strip()
         password = request.form['password']
+        ip = request.remote_addr
+        
+        # Initialize failed attempts counter for IP
+        if ip not in failed_attempts:
+            failed_attempts[ip] = {'count': 0, 'timestamp': 0}
         
         user = User.query.filter_by(username=username, is_active=True).first()
         
+        # Check if user account is locked
+        if user and user.lock_until and user.lock_until > datetime.utcnow():
+            remaining = (user.lock_until - datetime.utcnow()).seconds
+            flash(f'Account temporarily locked. Please try again in {remaining} seconds.', 'error')
+            return render_template('login.html')
+        
         if user and check_password_hash(user.password, password):
+            # Successful login - reset failed attempts
+            failed_attempts[ip]['count'] = 0
+            
+            # Update user login info
+            user.login_attempts = 0
+            user.lock_until = None  # Remove any lock
+            user.last_login = datetime.utcnow()
+            db.session.commit()
+            
+            # Set up session
+            session.permanent = True
             session['user_id'] = user.id
             session['username'] = user.username
             session['role'] = user.role
+            session['login_time'] = time.time()
             
-            log_activity(user.id, 'Login', f'User {username} logged in', request.remote_addr)
-            
+            log_activity(user.id, 'Login', f'User {username} logged in', ip)
             flash('Login successful!', 'success')
             
-            #  first login
             if user.first_login:
                 return redirect(url_for('change_credentials'))
             
             return redirect(url_for('dashboard'))
         else:
-            flash('Invalid username or password', 'error')
+            # Failed login attempt
+            failed_attempts[ip]['count'] += 1
+            failed_attempts[ip]['timestamp'] = time.time()
+            
+            if user:
+                user.login_attempts += 1
+                
+                # Lock account after 3 failed attempts
+                if user.login_attempts >= 3:
+                    user.lock_until = datetime.utcnow() + timedelta(seconds=30)
+                    flash('Account temporarily locked due to too many failed attempts. Please try again in 30 seconds.', 'error')
+                
+                db.session.commit()
+            
+            if failed_attempts[ip]['count'] >= 3:
+                flash('Too many failed attempts. Please wait 30 seconds before trying again.', 'error')
+            else:
+                attempts_left = 3 - failed_attempts[ip]['count']
+                flash(f'Invalid username or password. {attempts_left} attempts remaining.', 'error')
     
     return render_template('login.html')
+
+# Log activity function
 
 @app.route('/logout')
 @login_required
@@ -4334,4 +4431,3 @@ if __name__ == '__main__':
         socketio.run(app, host='0.0.0.0', port=port)
     else:
         socketio.run(app, debug=True, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
-
