@@ -8,9 +8,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css">
-
-      <link href="https://cdn.jsdelivr.net/npm/startbootstrap-sb-admin-2@4.1.4/css/sb-admin-2.min.css" rel="stylesheet">
-<!-- fix error in frontend add phon-->
+    <link href="https://cdn.jsdelivr.net/npm/startbootstrap-sb-admin-2@4.1.4/css/sb-admin-2.min.css" rel="stylesheet">
 
     <style>
         :root {
@@ -113,59 +111,129 @@
             padding: 1rem;
             margin-top: 2rem;
         }
-         .profile-pic-container {
-        width: 100px;
-        height: 100px;
-        min-width: 100px;
-        border-radius: 50%;
-        overflow: hidden;
-        border: 4px solid #f8f9fa;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        position: relative;
-    }
-    
-    .profile-pic {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-    
-    .default-profile-pic {
-        width: 100%;
-        height: 100%;
-        background-color: #f8f9fa;
-        border-radius: 50%;
-    }
-    
-    @media (max-width: 768px) {
+        
         .profile-pic-container {
-            width: 80px;
-            height: 80px;
-            margin-right: 15px !important;
+            width: 100px;
+            height: 100px;
+            min-width: 100px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 4px solid #f8f9fa;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: relative;
         }
-    }
+        
+        .profile-pic {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .default-profile-pic {
+            width: 100%;
+            height: 100%;
+            background-color: #f8f9fa;
+            border-radius: 50%;
+        }
+        
+        /* Mobile hamburger menu styling */
+        .hamburger-menu {
+            display: none;
+            position: fixed;
+            top: 56px;
+            left: 0;
+            width: 100%;
+            background-color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1050;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        
+        .hamburger-menu.show {
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .hamburger-menu .nav-link {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #eee;
+            color: var(--dark-text);
+            display: flex;
+            align-items: center;
+        }
+        
+        .hamburger-menu .nav-link i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+        }
+        
+        .user-info-mobile {
+            padding: 1.5rem;
+            background-color: var(--light-bg);
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+        }
+        
+        .user-info-mobile .profile-icon {
+            font-size: 2rem;
+            margin-right: 15px;
+            color: var(--primary-color);
+        }
+        
+        @media (max-width: 768px) {
+            .hamburger-menu {
+                display: block;
+            }
+            
+            .sidebar {
+                display: none;
+            }
+            
+            .profile-pic-container {
+                width: 80px;
+                height: 80px;
+                margin-right: 15px !important;
+            }
+            
+            .main-content {
+                padding: 1rem;
+            }
+        }
+        
+        @media (min-width: 769px) {
+            .hamburger-menu {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
     <!-- Navigation Bar -->
     <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: var(--primary-color);">
         <div class="container-fluid">
+            {% if session.user_id %}
+            <button class="navbar-toggler" type="button" id="hamburgerToggle">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            {% endif %}
+            
             <a class="navbar-brand" href="{{ url_for('index') }}">
                 <i class="fas fa-graduation-cap me-2"></i>JRIIT Results
             </a>
             
             {% if session.user_id %}
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+            <!-- User info for desktop view -->
+            <div class="d-none d-md-flex ms-auto">
+                <ul class="navbar-nav">
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                        <a class="nav-link dropdown-toggle text-white" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
                             <i class="fas fa-user-circle me-1"></i>{{ session.username }}
                         </a>
-                        <ul class="dropdown-menu">
+                        <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="{{ url_for('profile') }}"><i class="fas fa-user me-2"></i>Profile</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
@@ -177,11 +245,98 @@
         </div>
     </nav>
 
+    {% if session.user_id %}
+    <!-- Hamburger Menu for Mobile -->
+    <div class="hamburger-menu" id="hamburgerMenu">
+        <div class="user-info-mobile">
+            <i class="fas fa-user-circle profile-icon"></i>
+            <div>
+                <h6 class="mb-0">{{ session.username }}</h6>
+                <small class="text-muted">{{ session.role|capitalize }}</small>
+            </div>
+        </div>
+        
+        <div class="nav flex-column">
+            <a class="nav-link" href="{{ url_for('dashboard') }}">
+                <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+            </a>
+            
+            {% if session.role == 'admin' %}
+            <a class="nav-link" href="{{ url_for('create_user') }}">
+                <i class="fas fa-user-plus me-2"></i>Create User
+            </a>
+            <a class="nav-link" href="{{ url_for('manage_users') }}">
+                <i class="fas fa-users-cog me-2"></i>Manage Users
+            </a>
+            <a class="nav-link" href="{{ url_for('reports') }}">
+                <i class="fas fa-chart-bar me-2"></i>Reports
+            </a>
+            <a href="{{ url_for('calendar') }}" class="nav-link">
+                <i class="bi bi-calendar-event me-2"></i>Calendar
+            </a>
+            {% endif %}
+            
+            {% if session.role == 'teacher' %}
+            <a class="nav-link" href="{{ url_for('teacher_subjects') }}">
+                <i class="fas fa-book me-2"></i>My Subjects
+            </a>
+            <a class="nav-link" href="{{ url_for('add_result') }}">
+                <i class="fas fa-plus-circle me-2"></i>Add Result
+            </a>
+            <a class="nav-link" href="{{ url_for('teacher_results') }}">
+                <i class="fas fa-list-alt me-2"></i>My Results
+            </a>
+            <a href="{{ url_for('calendar') }}" class="nav-link">
+                <i class="bi bi-calendar-event me-2"></i>Calendar
+            </a>
+            {% endif %}
+            
+            {% if session.role == 'academic' %}
+            <a class="nav-link" href="{{ url_for('academic_subjects') }}">
+                <i class="fas fa-book-open me-2"></i>Subjects
+            </a>
+            <a class="nav-link" href="{{ url_for('add_subject') }}">
+                <i class="fas fa-plus me-2"></i>Add Subject
+            </a>
+            <a class="nav-link" href="{{ url_for('review_results') }}">
+                <i class="fas fa-check-circle me-2"></i>Review Results
+            </a>
+            <a class="nav-link" href="{{ url_for('all_results') }}">
+                <i class="fas fa-table me-2"></i>All Results
+            </a>
+            <a class="nav-link" href="{{ url_for('reports') }}">
+                <i class="fas fa-chart-line me-2"></i>Reports
+            </a>
+            <a href="{{ url_for('calendar') }}" class="nav-link">
+                <i class="bi bi-calendar-event me-2"></i>Calendar
+            </a>
+            {% endif %}
+            
+            {% if session.role == 'student' %}
+            <a class="nav-link" href="{{ url_for('student_transcript') }}">
+                <i class="fas fa-file-alt me-2"></i>Transcript
+            </a>
+            <a href="{{ url_for('calendar') }}" class="nav-link">
+                <i class="bi bi-calendar-event me-2"></i>Calendar
+            </a>
+            {% endif %}
+            
+            <div class="dropdown-divider"></div>
+            <a class="nav-link" href="{{ url_for('profile') }}">
+                <i class="fas fa-user me-2"></i>Profile
+            </a>
+            <a class="nav-link" href="{{ url_for('logout') }}">
+                <i class="fas fa-sign-out-alt me-2"></i>Logout
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="container-fluid">
         <div class="row">
             {% if session.user_id and not request.endpoint in ['login', 'student_register', 'index'] %}
-            <!-- Sidebar -->
-            <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+            <!-- Sidebar (for desktop) -->
+            <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse" id="sidebar">
                 <div class="position-sticky pt-3">
                     <ul class="nav flex-column">
                         <li class="nav-item">
@@ -284,8 +439,6 @@
                                 Calendar
                             </a>
                         </li>
-                        
-                
                         {% endif %}
                     </ul>
                 </div>
@@ -309,28 +462,51 @@
             </main>
         </div>
     </div>
-        <!-- DataTables CSS -->
-<link href="https://cdn.datatables.net/1.10.20/css/dataTables.bootstrap4.min.css" rel="stylesheet">
+    
+    <!-- DataTables CSS -->
+    <link href="https://cdn.datatables.net/1.10.20/css/dataTables.bootstrap4.min.css" rel="stylesheet">
 
-        <!-- DataTables JS -->
-        <script src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
-        <script src="https://cdn.datatables.net/1.10.20/js/dataTables.bootstrap4.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
-        <!-- Custom scripts for all pages-->
-        <script src="https://cdn.jsdelivr.net/npm/startbootstrap-sb-admin-2@4.1.3/js/sb-admin-2.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.20/js/dataTables.bootstrap4.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+    <!-- Custom scripts for all pages-->
+    <script src="https://cdn.jsdelivr.net/npm/startbootstrap-sb-admin-2@4.1.3/js/sb-admin-2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
     {% block scripts %}
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {                                                                                                  
-                document.querySelectorAll('.profile-pic').forEach(img => {
-                    img.onerror = function() {
-                        this.src = '{{ url_for("static", filename="images/default-profile.png") }}';
-                        this.onerror = null; 
-                    };
-                });
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {                                                                                                  
+            document.querySelectorAll('.profile-pic').forEach(img => {
+                img.onerror = function() {
+                    this.src = '{{ url_for("static", filename="images/default-profile.png") }}';
+                    this.onerror = null; 
+                };
             });
-</script>
-{% endblock %}
+            
+            {% if session.user_id %}
+            // Hamburger menu toggle - only if user is logged in
+            const hamburgerToggle = document.getElementById('hamburgerToggle');
+            const hamburgerMenu = document.getElementById('hamburgerMenu');
+            
+            if (hamburgerToggle && hamburgerMenu) {
+                hamburgerToggle.addEventListener('click', function() {
+                    hamburgerMenu.classList.toggle('show');
+                });
+                
+                // Close hamburger menu when clicking outside
+                document.addEventListener('click', function(event) {
+                    const isClickInsideHamburger = hamburgerMenu.contains(event.target);
+                    const isClickOnToggle = hamburgerToggle.contains(event.target);
+                    
+                    if (!isClickInsideHamburger && !isClickOnToggle && hamburgerMenu.classList.contains('show')) {
+                        hamburgerMenu.classList.remove('show');
+                    }
+                });
+            }
+            {% endif %}
+        });
+    </script>
+    {% endblock %}
 </body>
 </html>
-
