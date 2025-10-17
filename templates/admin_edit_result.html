@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Result - Admin{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Edit Result</h1>
+    
+    <!-- Student Information -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Student Information</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Name:</strong> {{ user.first_name }} {{ user.last_name }}</p>
+                    <p><strong>Username:</strong> {{ user.username }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Subject:</strong> {{ subject.subject_name }}</p>
+                    <p><strong>Semester:</strong> {{ subject.semester }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Form -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Edit Result Details</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="marks" class="form-label">Marks</label>
+                        <input type="number" step="0.01" class="form-control" id="marks" 
+                               name="marks" value="{{ result.marks }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="grade" class="form-label">Grade</label>
+                        <select class="form-select" id="grade" name="grade" required>
+                            <option value="A+" {% if result.grade == 'A+' %}selected{% endif %}>A+</option>
+                            <option value="A" {% if result.grade == 'A' %}selected{% endif %}>A</option>
+                            <option value="A-" {% if result.grade == 'A-' %}selected{% endif %}>A-</option>
+                            <option value="B+" {% if result.grade == 'B+' %}selected{% endif %}>B+</option>
+                            <option value="B" {% if result.grade == 'B' %}selected{% endif %}>B</option>
+                            <option value="B-" {% if result.grade == 'B-' %}selected{% endif %}>B-</option>
+                            <option value="C+" {% if result.grade == 'C+' %}selected{% endif %}>C+</option>
+                            <option value="C" {% if result.grade == 'C' %}selected{% endif %}>C</option>
+                            <option value="C-" {% if result.grade == 'C-' %}selected{% endif %}>C-</option>
+                            <option value="D+" {% if result.grade == 'D+' %}selected{% endif %}>D+</option>
+                            <option value="D" {% if result.grade == 'D' %}selected{% endif %}>D</option>
+                            <option value="F" {% if result.grade == 'F' %}selected{% endif %}>F</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="gpa" class="form-label">GPA</label>
+                        <input type="number" step="0.01" class="form-control" id="gpa" 
+                               name="gpa" value="{{ result.gpa }}" required>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="comments" class="form-label">Comments</label>
+                    <textarea class="form-control" id="comments" name="comments" 
+                              rows="3">{{ result.comments or '' }}</textarea>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="is_published" 
+                               name="is_published" {% if result.is_published %}checked{% endif %}>
+                        <label class="form-check-label" for="is_published">
+                            Publish this result (student can see it)
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="send_notification" 
+                               name="send_notification" checked>
+                        <label class="form-check-label" for="send_notification">
+                            Send notification to student about this update
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Update Result</button>
+                    <a href="{{ url_for('admin_results') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Activity Log - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4">Activity Log</h1>
+    
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-3">
+                    <select name="action_type" class="form-select">
+                        <option value="">All Actions</option>
+                        <option value="submitted" {% if action_type == 'submitted' %}selected{% endif %}>Submitted</option>
+                        <option value="approved" {% if action_type == 'approved' %}selected{% endif %}>Approved</option>
+                        <option value="published" {% if action_type == 'published' %}selected{% endif %}>Published</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <input type="date" name="date_from" class="form-control" value="{{ date_from }}">
+                </div>
+                <div class="col-md-3">
+                    <input type="date" name="date_to" class="form-control" value="{{ date_to }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary">Filter</button>
+                    <a href="{{ url_for('admin_activity_log') }}" class="btn btn-secondary">Clear</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Activity Table -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Subject</th>
+                            <th>Marks</th>
+                            <th>Grade</th>
+                            <th>Status</th>
+                            <th>Submitted</th>
+                            <th>Approved</th>
+                            <th>Published</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result, student, subject, user in activities %}
+                        <tr>
+                            <td>{{ user.first_name }} {{ user.last_name }}</td>
+                            <td>{{ subject.subject_name }}</td>
+                            <td>{{ result.marks }}</td>
+                            <td>{{ result.grade }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if result.status == 'approved' else 'warning' if result.status == 'pending' else 'danger' }}">
+                                    {{ result.status }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if result.submitted_at %}
+                                {{ result.submitted_at.strftime('%Y-%m-%d %H:%M') }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if result.approved_at %}
+                                {{ result.approved_at.strftime('%Y-%m-%d %H:%M') }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if result.published_at %}
+                                {{ result.published_at.strftime('%Y-%m-%d %H:%M') }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container-fluid px-4">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Review Result</h1>
+        <a href="{{ url_for('review_results') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left fa-sm text-white-50"></i> Back to Results
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Result Details -->
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Result Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="font-weight-bold">Student Information</h6>
+                            <p><strong>Name:</strong> {{ student.full_name }}</p>
+                            <p><strong>Roll Number:</strong> {{ student.roll_number }}</p>
+                            <p><strong>Course:</strong> {{ student.course }}</p>
+                            <p><strong>Semester:</strong> {{ student.semester }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="font-weight-bold">Subject Information</h6>
+                            <p><strong>Subject:</strong> {{ subject.subject_name }}</p>
+                            <p><strong>Code:</strong> {{ subject.subject_code }}</p>
+                            <p><strong>Teacher:</strong> {{ teacher.full_name if teacher else 'Unassigned' }}</p>
+                            <p><strong>Credits:</strong> {{ subject.credits }}</p>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="font-weight-bold">Marks & Grade</h6>
+                            <p><strong>Marks Obtained:</strong> {{ result.marks_obtained }}/{{ result.total_marks }}</p>
+                            <p><strong>Grade:</strong> 
+                                <span class="badge badge-{{ 'success' if result.grade in ['A','B','C'] else 'warning' if result.grade == 'D' else 'danger' }}">
+                                    {{ result.grade }}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="font-weight-bold">Submission Details</h6>
+                            <p><strong>Submitted At:</strong> {{ result.submitted_at.strftime('%b %d, %Y at %H:%M') }}</p>
+                            <p><strong>Status:</strong> 
+                                <span class="badge badge-{{ 'warning' if result.status == 'pending' else 'success' if result.status == 'approved' else 'danger' }}">
+                                    {{ result.status|title }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    {% if result.comments %}
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6 class="font-weight-bold">Comments</h6>
+                            <div class="alert alert-info">
+                                {{ result.comments }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="text-center">
+                        {% if result.status == 'pending' %}
+                        <a href="{{ url_for('approve_result', result_id=result.id) }}" 
+                           class="btn btn-success btn-block mb-2"
+                           onclick="return confirm('Are you sure you want to approve this result?')">
+                            <i class="fas fa-check mr-1"></i> Approve Result
+                        </a>
+                        
+                        <button type="button" class="btn btn-danger btn-block mb-2" data-toggle="modal" data-target="#rejectModal">
+                            <i class="fas fa-times mr-1"></i> Reject Result
+                        </button>
+                        {% elif result.status == 'approved' %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i> This result has been approved
+                        </div>
+                        {% elif result.status == 'rejected' %}
+                        <div class="alert alert-danger">
+                            <i class="fas fa-times-circle"></i> This result has been rejected
+                        </div>
+                        {% endif %}
+                        
+                        <a href="{{ url_for('review_results') }}" class="btn btn-secondary btn-block">
+                            <i class="fas fa-list mr-1"></i> Back to List
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1" role="dialog" aria-labelledby="rejectModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="rejectModalLabel">Reject Result</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form action="{{ url_for('reject_result', result_id=result.id) }}" method="POST">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="rejection_comments">Reason for Rejection</label>
+                        <textarea class="form-control" id="rejection_comments" name="rejection_comments" 
+                                  rows="4" placeholder="Please provide a reason for rejecting this result..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Reject Result</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

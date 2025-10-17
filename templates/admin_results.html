@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Results - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4">Manage Results</h1>
+    
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-2">
+                    <input type="text" name="student_search" class="form-control" 
+                           placeholder="Student name" value="{{ student_search }}">
+                </div>
+                <div class="col-md-2">
+                    <input type="text" name="subject_search" class="form-control" 
+                           placeholder="Subject" value="{{ subject_search }}">
+                </div>
+                <div class="col-md-2">
+                    <select name="semester" class="form-select">
+                        <option value="">All Semesters</option>
+                        {% for i in range(1, 9) %}
+                        <option value="{{ i }}" {% if semester == i|string %}selected{% endif %}>
+                            Semester {{ i }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="status" class="form-select">
+                        <option value="">All Status</option>
+                        <option value="pending" {% if status == 'pending' %}selected{% endif %}>Pending</option>
+                        <option value="approved" {% if status == 'approved' %}selected{% endif %}>Approved</option>
+                        <option value="rejected" {% if status == 'rejected' %}selected{% endif %}>Rejected</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary">Filter</button>
+                    <a href="{{ url_for('admin_results') }}" class="btn btn-secondary">Clear</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Bulk Actions -->
+    <form method="POST" action="{{ url_for('admin_bulk_actions') }}" id="bulkForm">
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <select name="bulk_action" class="form-select" required>
+                    <option value="">Bulk Actions</option>
+                    <option value="publish">Publish Selected</option>
+                    <option value="unpublish">Unpublish Selected</option>
+                    <option value="approve">Approve Selected</option>
+                    <option value="reject">Reject Selected</option>
+                    <option value="delete">Delete Selected</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-warning" onclick="return confirm('Are you sure?')">
+                    Apply
+                </button>
+            </div>
+        </div>
+        
+        <!-- Results Table -->
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAll"></th>
+                                <th>Student</th>
+                                <th>Subject</th>
+                                <th>Semester</th>
+                                <th>Marks</th>
+                                <th>Grade</th>
+                                <th>Status</th>
+                                <th>Published</th>
+                                <th>Submitted</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result, student, subject, user in results %}
+                            <tr>
+                                <td><input type="checkbox" name="result_ids" value="{{ result.id }}"></td>
+                                <td>
+                                    {{ user.first_name }} {{ user.last_name }}
+                                    <br><small class="text-muted">{{ student.roll_number }}</small>
+                                </td>
+                                <td>{{ subject.subject_name }}<br><small class="text-muted">{{ subject.subject_code }}</small></td>
+                                <td>{{ subject.semester }}</td>
+                                <td>{{ result.marks }}</td>
+                                <td>{{ result.grade }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if result.status == 'approved' else 'warning' if result.status == 'pending' else 'danger' }}">
+                                        {{ result.status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if result.is_published else 'secondary' }}">
+                                        {{ 'Yes' if result.is_published else 'No' }}
+                                    </span>
+                                </td>
+                                <td>{{ result.submitted_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('admin_edit_result', result_id=result.id) }}" 
+                                           class="btn btn-primary">Edit</a>
+                                        <a href="{{ url_for('admin_student_results', student_id=student.id) }}" 
+                                           class="btn btn-info">View All</a>
+                                        <form method="POST" action="{{ url_for('admin_delete_result', result_id=result.id) }}" 
+                                              class="d-inline" onsubmit="return confirm('Delete this result?')">
+                                            <button type="submit" class="btn btn-danger">Delete</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+document.getElementById('selectAll').addEventListener('click', function() {
+    const checkboxes = document.getElementsByName('result_ids');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = this.checked;
+    });
+});
+</script>
+{% endblock %}

@@ -127,10 +127,27 @@ class Result(db.Model):
     approved_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     approved_at = db.Column(db.DateTime, nullable=True)
     comments = db.Column(db.Text, nullable=True)
-    is_final = db.Column(db.Boolean, default=False)  # Once approved
+    is_final = db.Column(db.Boolean, default=False)
+    is_published = db.Column(db.Boolean, default=False)
+    published_at = db.Column(db.DateTime)
+    published_by = db.Column(db.Integer, db.ForeignKey('user.id'))
     
     student = db.relationship('Student', backref='results')
     subject = db.relationship('Subject', backref='results')
+    submitter = db.relationship('User', foreign_keys=[submitted_by])
+    approver = db.relationship('User', foreign_keys=[approved_by])
+    publisher_user = db.relationship('User', foreign_keys=[published_by])
+
+class ResultNotification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
+    result_id = db.Column(db.Integer, db.ForeignKey('result.id'), nullable=False)
+    message = db.Column(db.String(500))
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    student = db.relationship('Student', backref='notifications')
+    result = db.relationship('Result', backref='notifications')
 
 class ActivityLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -141,7 +158,6 @@ class ActivityLog(db.Model):
     ip_address = db.Column(db.String(45), nullable=True)
     
     user = db.relationship('User', backref='activity_logs')
-
 
 class CalendarEvent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -192,9 +208,6 @@ class Announcement(db.Model):
     attachment_type = db.Column(db.String(50), nullable=True)  # csv, pdf, docx
     
     creator = db.relationship('User', backref='announcements')
-    target_type = db.Column(db.String(20), nullable=False, index=True)
-    target_value = db.Column(db.String(50), nullable=True, index=True)
-    is_active = db.Column(db.Boolean, default=True, index=True)
 
 class AnnouncementRead(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -298,8 +311,7 @@ class AttendanceException(db.Model):
     # Relationships
     lesson = db.relationship('Lesson', backref='exceptions')
     student = db.relationship('Student', backref='attendance_exceptions')
-    
-    
+
 class QuestionBank(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     question_text = db.Column(db.Text, nullable=False)
@@ -612,7 +624,7 @@ def student_approved_required(f):
 @app.route('/')
 def index():
     return render_template('index.html')
-
+  
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -824,6 +836,9 @@ def teacher_dashboard():
                          students_count=students_count)
 
 @app.route('/academic_dashboard')
+@login_required
+@role_required(['academic'])
+@first_login_required
 def academic_dashboard():
     # Check if user is logged in
     if 'user_id' not in session:
@@ -839,14 +854,28 @@ def academic_dashboard():
     pending_results = Result.query.filter_by(status='pending').count()
     approved_results = Result.query.filter_by(status='approved').count()
     rejected_results = Result.query.filter_by(status='rejected').count()
-    
-    
     unassigned_subjects = Subject.query.filter_by(teacher_id=None, is_active=True).count()
     
-    # Get recent pending results
-    recent_pending = Result.query.filter_by(status='pending')\
-                                .order_by(Result.submitted_at.desc())\
-                                .limit(5).all()
+    # ALTERNATIVE: Use named tuple approach
+    recent_pending_data = db.session.query(Result, Student, Subject, Teacher).join(
+        Student, Result.student_id == Student.id
+    ).join(
+        Subject, Result.subject_id == Subject.id
+    ).join(
+        Teacher, Subject.teacher_id == Teacher.id, isouter=True
+    ).filter(
+        Result.status == 'pending'
+    ).order_by(Result.submitted_at.desc()).limit(5).all()
+    
+    # Convert to dictionary format for easier template access
+    recent_pending = []
+    for result, student, subject, teacher in recent_pending_data:
+        recent_pending.append({
+            'Result': result,
+            'Student': student,
+            'Subject': subject, 
+            'Teacher': teacher
+        })
     
     return render_template('academic_dashboard.html',
                          academic=academic,
@@ -855,7 +884,27 @@ def academic_dashboard():
                          rejected_results=rejected_results,
                          unassigned_subjects=unassigned_subjects,
                          recent_pending=recent_pending)
-
+@app.route('/academic/review-result/<int:result_id>')
+@login_required
+@role_required(['academic'])
+@first_login_required
+def review_result(result_id):
+    # Get the specific result with related data
+    result_info = db.session.query(Result, Student, Subject, Teacher).join(
+        Student, Result.student_id == Student.id
+    ).join(
+        Subject, Result.subject_id == Subject.id
+    ).join(
+        Teacher, Subject.teacher_id == Teacher.id, isouter=True
+    ).filter(Result.id == result_id).first_or_404()
+    
+    result, student, subject, teacher = result_info
+    
+    return render_template('review_result.html', 
+                         result=result, 
+                         student=student, 
+                         subject=subject, 
+                         teacher=teacher)
 @app.route('/academic_results')
 def academic_results():
     # Check if user is logged in
@@ -895,79 +944,6 @@ def manage_results(subject_id):
                          results=results)
 
 
-@app.route('/student/dashboard')
-@login_required
-def student_dashboard():
-    student = Student.query.filter_by(user_id=session['user_id']).first()
-    if not student:
-        flash('Student profile not found', 'error')
-        return redirect(url_for('logout'))
-    
-    user = User.query.get(session['user_id'])
-    
-    # Initialize default values
-    results_by_semester = {}
-    overall_gpa = None
-    total_credits = 0
-    total_subjects = 0
-    passed_subjects = 0
-    best_subject_grade = None
-    
-    # Get approved results only if they exist
-    results = db.session.query(Result, Subject).join(Subject).filter(
-        Result.student_id == student.id,
-        Result.status == 'approved'
-    ).order_by(Subject.semester, Subject.subject_name).all()
-    
-    if results:  # Only process if results exist
-        for result, subject in results:
-            semester = subject.semester
-            if semester not in results_by_semester:
-                results_by_semester[semester] = {
-                    'results': [],
-                    'semester_gpa': 0,
-                    'semester_credits': 0
-                }
-            
-            results_by_semester[semester]['results'].append({
-                'subject': subject,
-                'result': result
-            })
-            
-            results_by_semester[semester]['semester_gpa'] += result.gpa * subject.credits
-            results_by_semester[semester]['semester_credits'] += subject.credits
-            total_credits += subject.credits
-            total_subjects += 1
-            
-            if result.gpa >= 1.0:  # Considered passed
-                passed_subjects += 1
-                
-            if not best_subject_grade or result.gpa > grade_to_value(best_subject_grade):
-                best_subject_grade = result.grade
-        
-        # Calculate semester GPAs
-        for semester in results_by_semester:
-            if results_by_semester[semester]['semester_credits'] > 0:
-                results_by_semester[semester]['semester_gpa'] /= results_by_semester[semester]['semester_credits']
-        
-        # Calculate overall GPA if we have credits
-        if total_credits > 0:
-            overall_gpa = sum(
-                semester_data['semester_gpa'] * semester_data['semester_credits'] 
-                for semester_data in results_by_semester.values()
-            ) / total_credits
-    
-    return render_template('student_dashboard.html',
-                         student=student,
-                         user=user,
-                         results_by_semester=results_by_semester,
-                         overall_gpa=round(overall_gpa, 2) if overall_gpa is not None else None,
-                         total_credits=total_credits,
-                         total_subjects=total_subjects,
-                         passed_subjects=passed_subjects,
-                         best_subject_grade=best_subject_grade, 
-                         )
-    
 @app.route('/pending-approval')
 @login_required
 def pending_approval():
@@ -1127,59 +1103,94 @@ def add_result():
     teacher = Teacher.query.filter_by(user_id=session['user_id']).first()
     
     if request.method == 'POST':
-        student_id = request.form['student_id']
-        subject_id = request.form['subject_id']
-        marks = float(request.form['marks'])
-        comments = request.form.get('comments', '')
-        
-        # Validate marks
-        if marks < 0 or marks > 100:
-            flash('Marks must be between 0 and 100', 'error')
+        try:
+            # Get form data with proper validation
+            student_id = request.form.get('student_id')
+            subject_id = request.form.get('subject_id')
+            marks = request.form.get('marks')
+            comments = request.form.get('comments', '')
+            
+            # Validate required fields
+            if not all([student_id, subject_id, marks]):
+                flash('All fields are required', 'error')
+                return redirect(url_for('add_result'))
+            
+            # Convert and validate marks
+            try:
+                marks = float(marks)
+            except ValueError:
+                flash('Marks must be a valid number', 'error')
+                return redirect(url_for('add_result'))
+            
+            # Validate marks range
+            if marks < 0 or marks > 100:
+                flash('Marks must be between 0 and 100', 'error')
+                return redirect(url_for('add_result'))
+            
+            # Check if student exists and is approved
+            student = Student.query.filter_by(id=student_id, status='approved').first()
+            if not student:
+                flash('Student not found or not approved', 'error')
+                return redirect(url_for('add_result'))
+            
+            # Check if subject exists and belongs to teacher
+            subject = Subject.query.filter_by(id=subject_id, teacher_id=teacher.id, is_active=True).first()
+            if not subject:
+                flash('Subject not found or you are not assigned to this subject', 'error')
+                return redirect(url_for('add_result'))
+            
+            # Check if student is in the same course as subject
+            if student.course != subject.course:
+                flash('Student is not enrolled in this subject\'s course', 'error')
+                return redirect(url_for('add_result'))
+            
+            # Check if result already exists
+            existing_result = Result.query.filter_by(student_id=student_id, subject_id=subject_id).first()
+            if existing_result:
+                flash('Result already exists for this student and subject', 'error')
+                return redirect(url_for('add_result'))
+            
+            # Calculate grade and GPA
+            grade, gpa = calculate_grade_and_gpa(marks)
+            
+            # Create result
+            result = Result(
+                student_id=student_id,
+                subject_id=subject_id,
+                marks=marks,
+                grade=grade,
+                gpa=gpa,
+                submitted_by=session['user_id'],
+                comments=comments
+            )
+            
+            db.session.add(result)
+            db.session.commit()
+            
+            # Log activity
+            log_activity(session['user_id'], 'Result Added', 
+                        f'Added result for {student.full_name} in {subject.subject_name} - Grade: {grade}', 
+                        request.remote_addr)
+            
+            flash('Result added successfully! Waiting for academic approval.', 'success')
+            return redirect(url_for('teacher_subjects'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error adding result: {str(e)}', 'error')
             return redirect(url_for('add_result'))
-        
-        # Check if result already exists
-        existing_result = Result.query.filter_by(student_id=student_id, subject_id=subject_id).first()
-        if existing_result:
-            flash('Result already exists for this student and subject', 'error')
-            return redirect(url_for('add_result'))
-        
-        # Calculate grade and GPA
-        grade, gpa = calculate_grade_and_gpa(marks)
-        
-        # Create result
-        result = Result(
-            student_id=student_id,
-            subject_id=subject_id,
-            marks=marks,
-            grade=grade,
-            gpa=gpa,
-            submitted_by=session['user_id'],
-            comments=comments
-        )
-        
-        db.session.add(result)
-        db.session.commit()
-        
-        # Log activity
-        student = Student.query.get(student_id)
-        subject = Subject.query.get(subject_id)
-        log_activity(session['user_id'], 'Result Added', 
-                    f'Added result for {student.full_name} in {subject.subject_name} - Grade: {grade}', 
-                    request.remote_addr)
-        
-        flash('Result added successfully! Waiting for academic approval.', 'success')
-        return redirect(url_for('teacher_subjects'))
     
-    # Get teacher's subjects and students
+    # GET request - get teacher's active subjects
     subjects = Subject.query.filter_by(teacher_id=teacher.id, is_active=True).all()
     
-    # Get students for the teacher's subjects
-    students = db.session.query(Student).join(Result, Student.id == Result.student_id, isouter=True).join(
-        Subject, Result.subject_id == Subject.id, isouter=True
-    ).filter(
+    # Get courses taught by this teacher
+    teacher_courses = [subject.course for subject in subjects]
+    
+    # Get approved students in the teacher's courses
+    students = Student.query.filter(
         Student.status == 'approved',
-        Student.course.in_([s.course for s in subjects])
-    ).distinct().all()
+        Student.course.in_(teacher_courses)
+    ).all()
     
     return render_template('add_result.html', subjects=subjects, students=students, teacher=teacher)
 
@@ -1369,7 +1380,7 @@ def all_results():
     course_filter = request.args.get('course', '')
     semester_filter = request.args.get('semester', '')
     status_filter = request.args.get('status', '')
-    
+      
     query = db.session.query(Result, Student, Subject, Teacher).join(
         Student, Result.student_id == Student.id
     ).join(
@@ -1393,6 +1404,305 @@ def all_results():
                          course_filter=course_filter, 
                          semester_filter=semester_filter, 
                          status_filter=status_filter)
+
+
+@app.route('/academic/publish-results')
+@login_required
+@role_required(['academic'])
+@first_login_required
+def publish_results_dashboard():
+    """Dashboard to manage result publishing"""
+    
+    # Get all approved but unpublished results grouped by subject
+    unpublished_results = db.session.query(
+        Subject,
+        db.func.count(Result.id).label('count')
+    ).join(
+        Result, Subject.id == Result.subject_id
+    ).filter(
+        Result.status == 'approved',
+        Result.is_published == False
+    ).group_by(Subject.id).all()
+    
+    # Get recently published results
+    recently_published = db.session.query(Result, Student, Subject).join(
+        Student, Result.student_id == Student.id
+    ).join(
+        Subject, Result.subject_id == Subject.id
+    ).filter(
+        Result.is_published == True
+    ).order_by(Result.published_at.desc()).limit(10).all()
+    
+    return render_template('publish_results_dashboard.html',
+                         unpublished_results=unpublished_results,
+                         recently_published=recently_published)
+
+
+@app.route('/academic/publish-results/<int:subject_id>')
+@login_required
+@role_required(['academic'])
+@first_login_required
+def publish_results_subject(subject_id):
+    """View and publish results for a specific subject"""
+    subject = Subject.query.get_or_404(subject_id)
+    
+    # Get all approved results for this subject
+    results = db.session.query(Result, Student).join(
+        Student, Result.student_id == Student.id
+    ).filter(
+        Result.subject_id == subject_id,
+        Result.status == 'approved'
+    ).order_by(Student.roll_number).all()
+    
+    # Separate published and unpublished
+    unpublished = [r for r in results if not r[0].is_published]
+    published = [r for r in results if r[0].is_published]
+    
+    return render_template('publish_results_subject.html',
+                         subject=subject,
+                         unpublished=unpublished,
+                         published=published)
+
+
+@app.route('/academic/publish-result/<int:result_id>', methods=['POST'])
+@login_required
+@role_required(['academic'])
+@first_login_required
+def publish_single_result(result_id):
+    """Publish a single result to student"""
+    result = Result.query.get_or_404(result_id)
+    
+    if result.status != 'approved':
+        flash('Only approved results can be published', 'error')
+        return redirect(request.referrer or url_for('publish_results_dashboard'))
+    
+    if result.is_published:
+        flash('This result is already published', 'warning')
+        return redirect(request.referrer or url_for('publish_results_dashboard'))
+    
+    try:
+        # Publish the result
+        result.is_published = True
+        result.published_at = datetime.utcnow()
+        result.published_by = session['user_id']
+        
+        # Create notification for student
+        student = Student.query.get(result.student_id)
+        subject = Subject.query.get(result.subject_id)
+        
+        notification = ResultNotification(
+            student_id=student.id,
+            result_id=result.id,
+            message=f'Your result for {subject.subject_name} has been published. Grade: {result.grade}'
+        )
+        
+        db.session.add(notification)
+        db.session.commit()
+        
+        # Log activity
+        log_activity(
+            session['user_id'],
+            'Result Published',
+            f'Published result for {student.full_name} ({student.roll_number}) in {subject.subject_name}',
+            request.remote_addr
+        )
+        
+        flash(f'Result published successfully for {student.full_name}!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error publishing result: {str(e)}', 'error')
+    
+    return redirect(request.referrer or url_for('publish_results_dashboard'))
+
+
+@app.route('/academic/publish-bulk-results', methods=['POST'])
+@login_required
+@role_required(['academic'])
+@first_login_required
+def publish_bulk_results():
+    """Publish multiple results at once"""
+    result_ids = request.form.getlist('result_ids[]')
+    
+    if not result_ids:
+        flash('No results selected', 'error')
+        return redirect(request.referrer or url_for('publish_results_dashboard'))
+    
+    try:
+        published_count = 0
+        
+        for result_id in result_ids:
+            result = Result.query.get(result_id)
+            
+            if result and result.status == 'approved' and not result.is_published:
+                # Publish the result
+                result.is_published = True
+                result.published_at = datetime.utcnow()
+                result.published_by = session['user_id']
+                
+                # Create notification
+                student = Student.query.get(result.student_id)
+                subject = Subject.query.get(result.subject_id)
+                
+                notification = ResultNotification(
+                    student_id=student.id,
+                    result_id=result.id,
+                    message=f'Your result for {subject.subject_name} has been published. Grade: {result.grade}'
+                )
+                
+                db.session.add(notification)
+                published_count += 1
+        
+        db.session.commit()
+        
+        # Log activity
+        log_activity(
+            session['user_id'],
+            'Bulk Results Published',
+            f'Published {published_count} results',
+            request.remote_addr
+        )
+        
+        flash(f'Successfully published {published_count} results!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error publishing results: {str(e)}', 'error')
+    
+    return redirect(request.referrer or url_for('publish_results_dashboard'))
+
+
+@app.route('/academic/publish-all-subject/<int:subject_id>', methods=['POST'])
+@login_required
+@role_required(['academic'])
+@first_login_required
+def publish_all_subject_results(subject_id):
+    """Publish all approved results for a subject"""
+    subject = Subject.query.get_or_404(subject_id)
+    
+    try:
+        # Get all approved unpublished results
+        results = Result.query.filter_by(
+            subject_id=subject_id,
+            status='approved',
+            is_published=False
+        ).all()
+        
+        if not results:
+            flash('No unpublished results found for this subject', 'warning')
+            return redirect(request.referrer or url_for('publish_results_dashboard'))
+        
+        published_count = 0
+        
+        for result in results:
+            # Publish the result
+            result.is_published = True
+            result.published_at = datetime.utcnow()
+            result.published_by = session['user_id']
+            
+            # Create notification
+            student = Student.query.get(result.student_id)
+            
+            notification = ResultNotification(
+                student_id=student.id,
+                result_id=result.id,
+                message=f'Your result for {subject.subject_name} has been published. Grade: {result.grade}'
+            )
+            
+            db.session.add(notification)
+            published_count += 1
+        
+        db.session.commit()
+        
+        # Log activity
+        log_activity(
+            session['user_id'],
+            'All Subject Results Published',
+            f'Published all {published_count} results for {subject.subject_name}',
+            request.remote_addr
+        )
+        
+        flash(f'Successfully published all {published_count} results for {subject.subject_name}!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error publishing results: {str(e)}', 'error')
+    
+    return redirect(request.referrer or url_for('publish_results_dashboard'))
+
+
+@app.route('/academic/unpublish-result/<int:result_id>', methods=['POST'])
+@login_required
+@role_required(['academic'])
+@first_login_required
+def unpublish_result(result_id):
+    """Unpublish a result (remove from student view)"""
+    result = Result.query.get_or_404(result_id)
+    
+    if not result.is_published:
+        flash('This result is not published', 'warning')
+        return redirect(request.referrer or url_for('publish_results_dashboard'))
+    
+    try:
+        result.is_published = False
+        result.published_at = None
+        result.published_by = None
+        
+        # Remove notification
+        ResultNotification.query.filter_by(result_id=result.id).delete()
+        
+        db.session.commit()
+        
+        student = Student.query.get(result.student_id)
+        subject = Subject.query.get(result.subject_id)
+        
+        # Log activity
+        log_activity(
+            session['user_id'],
+            'Result Unpublished',
+            f'Unpublished result for {student.full_name} ({student.roll_number}) in {subject.subject_name}',
+            request.remote_addr
+        )
+        
+        flash('Result unpublished successfully!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error unpublishing result: {str(e)}', 'error')
+    
+    return redirect(request.referrer or url_for('publish_results_dashboard'))
+
+
+@app.route('/academic/search-student-result', methods=['GET'])
+@login_required
+@role_required(['academic'])
+@first_login_required
+def search_student_result():
+    """Search and publish result by roll number"""
+    roll_number = request.args.get('roll_number', '').strip().upper()
+    
+    if not roll_number:
+        flash('Please enter a roll number', 'error')
+        return redirect(url_for('publish_results_dashboard'))
+    
+    student = Student.query.filter_by(roll_number=roll_number).first()
+    
+    if not student:
+        flash(f'No student found with roll number: {roll_number}', 'error')
+        return redirect(url_for('publish_results_dashboard'))
+    
+    # Get all results for this student
+    results = db.session.query(Result, Subject).join(
+        Subject, Result.subject_id == Subject.id
+    ).filter(
+        Result.student_id == student.id,
+        Result.status == 'approved'
+    ).order_by(Subject.semester, Subject.subject_name).all()
+    
+    return render_template('student_results_academic.html',
+                         student=student,
+                         results=results)
+
 
 
 @app.route('/student/register', methods=['GET', 'POST'])
@@ -1460,127 +1770,138 @@ def student_register():
     return render_template('student_register.html', courses=COURSES)
 
 
-@app.route('/student/transcript')
+# ============= STUDENT ROUTES =============
+
+@app.route('/student/dashboard')
 @login_required
 @role_required(['student'])
-@first_login_required
-@student_approved_required
-def student_transcript():
-    student = Student.query.filter_by(user_id=session['user_id']).first()
-    
-    # Get all approved results
-    results = db.session.query(Result, Subject).join(Subject).filter(
-        Result.student_id == student.id,
-        Result.status == 'approved'
-    ).order_by(Subject.semester, Subject.subject_name).all()
-
-    transcript_data = {}
-    overall_gpa = 0
-    overall_credits = 0
-    passed_subjects = 0
-    total_subjects = 0
-    
-    # Track best and worst subjects
-    best_subject = None
-    worst_subject = None
-    
-    for result, subject in results:
-        semester = subject.semester
-        if semester not in transcript_data:
-            transcript_data[semester] = {
-                'subjects': [],
-                'semester_gpa': 0,
-                'semester_credits': 0,
-                'semester_points': 0
-            }
-        
-        # Add subject to semester
-        subject_entry = {
-            'subject_code': subject.subject_code,
-            'subject_name': subject.subject_name,
-            'credits': subject.credits,
-            'grade': result.grade,
-            'gpa': result.gpa,
-            'marks': result.marks
-        }
-        transcript_data[semester]['subjects'].append(subject_entry)
-        
-        # Update semester totals
-        transcript_data[semester]['semester_points'] += result.gpa * subject.credits
-        transcript_data[semester]['semester_credits'] += subject.credits
-        
-        # Update overall totals
-        overall_gpa += result.gpa * subject.credits
-        overall_credits += subject.credits
-        total_subjects += 1
-        
-        # Track passed subjects
-        if result.gpa >= 1.0:  # Minimum passing GPA
-            passed_subjects += 1
-        
-        # Track best and worst subjects
-        if not best_subject or result.gpa > best_subject['gpa']:
-            best_subject = {
-                'subject': subject.subject_name,
-                'grade': result.grade,
-                'gpa': result.gpa,
-                'marks': result.marks
-            }
-            
-        if not worst_subject or result.gpa < worst_subject['gpa']:
-            worst_subject = {
-                'subject': subject.subject_name,
-                'grade': result.grade,
-                'gpa': result.gpa,
-                'marks': result.marks
-            }
-    
-    # semester GPAs
-    for semester in transcript_data:
-        if transcript_data[semester]['semester_credits'] > 0:
-            transcript_data[semester]['semester_gpa'] = transcript_data[semester]['semester_points'] / transcript_data[semester]['semester_credits']
-    
-    # GPA
-    overall_gpa = overall_gpa / overall_credits if overall_credits > 0 else 0
-    
-    # pass rate
-    pass_rate = round((passed_subjects / total_subjects) * 100, 1) if total_subjects > 0 else 0
-  
-    sorted_semesters = sorted(transcript_data.keys())
-    
-    return render_template('student_transcript.html',
-                         student=student,
-                         transcript_data=transcript_data,
-                         sorted_semesters=sorted_semesters,
-                         overall_gpa=round(overall_gpa, 2),
-                         overall_credits=overall_credits,
-                         passed_subjects=passed_subjects,
-                         total_subjects=total_subjects,
-                         pass_rate=pass_rate,
-                         best_subject=best_subject,
-                         worst_subject=worst_subject,
-                         now=datetime.now().strftime("%B %d, %Y"))
-
-
-@app.route('/student/results')
-@login_required
-@role_required(['student'])
-@first_login_required
-@student_approved_required
-def student_results():
-  
+def student_dashboard():
     student = Student.query.filter_by(user_id=session['user_id']).first()
     if not student:
         flash('Student profile not found', 'error')
         return redirect(url_for('logout'))
     
-    # Get the associated user object for profile picture
     user = User.query.get(session['user_id'])
     
-    # Get approved results
+    # Get unread notifications count
+    unread_notifications = ResultNotification.query.filter_by(
+        student_id=student.id,
+        is_read=False
+    ).count()
+    
+    # Initialize default values
+    results_by_semester = {}
+    overall_gpa = None
+    total_credits = 0
+    total_subjects = 0
+    passed_subjects = 0
+    best_subject_grade = None
+    
+    # Get PUBLISHED approved results only
     results = db.session.query(Result, Subject).join(Subject).filter(
         Result.student_id == student.id,
-        Result.status == 'approved'
+        Result.status == 'approved',
+        Result.is_published == True  # Only show published results
+    ).order_by(Subject.semester, Subject.subject_name).all()
+    
+    if results:
+        for result, subject in results:
+            semester = subject.semester
+            if semester not in results_by_semester:
+                results_by_semester[semester] = {
+                    'results': [],
+                    'semester_gpa': 0,
+                    'semester_credits': 0
+                }
+            
+            results_by_semester[semester]['results'].append({
+                'subject': subject,
+                'result': result
+            })
+            
+            results_by_semester[semester]['semester_gpa'] += result.gpa * subject.credits
+            results_by_semester[semester]['semester_credits'] += subject.credits
+            total_credits += subject.credits
+            total_subjects += 1
+            
+            if result.gpa >= 1.0:
+                passed_subjects += 1
+                
+            if not best_subject_grade or result.gpa > grade_to_value(best_subject_grade):
+                best_subject_grade = result.grade
+        
+        # Calculate semester GPAs
+        for semester in results_by_semester:
+            if results_by_semester[semester]['semester_credits'] > 0:
+                results_by_semester[semester]['semester_gpa'] /= results_by_semester[semester]['semester_credits']
+        
+        # Calculate overall GPA
+        if total_credits > 0:
+            overall_gpa = sum(
+                semester_data['semester_gpa'] * semester_data['semester_credits'] 
+                for semester_data in results_by_semester.values()
+            ) / total_credits
+    
+    return render_template('student_dashboard.html',
+                         student=student,
+                         user=user,
+                         results_by_semester=results_by_semester,
+                         overall_gpa=round(overall_gpa, 2) if overall_gpa is not None else None,
+                         total_credits=total_credits,
+                         total_subjects=total_subjects,
+                         passed_subjects=passed_subjects,
+                         best_subject_grade=best_subject_grade,
+                         unread_notifications=unread_notifications)
+
+
+@app.route('/student/notifications')
+@login_required
+@role_required(['student'])
+def student_notifications():
+    """View all notifications"""
+    student = Student.query.filter_by(user_id=session['user_id']).first()
+    if not student:
+        flash('Student profile not found', 'error')
+        return redirect(url_for('logout'))
+    
+    # Get all notifications
+    notifications = db.session.query(ResultNotification, Result, Subject).join(
+        Result, ResultNotification.result_id == Result.id
+    ).join(
+        Subject, Result.subject_id == Subject.id
+    ).filter(
+        ResultNotification.student_id == student.id
+    ).order_by(ResultNotification.created_at.desc()).all()
+    
+    # Mark all as read
+    ResultNotification.query.filter_by(
+        student_id=student.id,
+        is_read=False
+    ).update({'is_read': True})
+    db.session.commit()
+    
+    return render_template('student_notifications.html',
+                         student=student,
+                         notifications=notifications)
+
+
+@app.route('/student/results')
+@login_required
+@role_required(['student'])
+def student_results():
+    """View all student results"""
+    student = Student.query.filter_by(user_id=session['user_id']).first()
+    if not student:
+        flash('Student profile not found', 'error')
+        return redirect(url_for('logout'))
+    
+    user = User.query.get(session['user_id'])
+    
+    # Get PUBLISHED approved results only
+    results = db.session.query(Result, Subject).join(Subject).filter(
+        Result.student_id == student.id,
+        Result.status == 'approved',
+        Result.is_published == True  # Only show published results
     ).order_by(Subject.semester, Subject.subject_name).all()
     
     # Group results by semester
@@ -1605,14 +1926,13 @@ def student_results():
             'result': result
         })
         
-        # Calculate GPA
         results_by_semester[semester]['semester_gpa'] += result.gpa * subject.credits
         results_by_semester[semester]['semester_credits'] += subject.credits
         total_gpa += result.gpa * subject.credits
         total_credits += subject.credits
         
         total_subjects += 1
-        if result.gpa > 0:  # Passed if GPA > 0
+        if result.gpa > 0:
             passed_subjects += 1
             
         if grade_to_value(result.grade) > grade_to_value(best_grade):
@@ -1621,13 +1941,13 @@ def student_results():
     for semester in results_by_semester:
         if results_by_semester[semester]['semester_credits'] > 0:
             results_by_semester[semester]['semester_gpa'] /= results_by_semester[semester]['semester_credits']
-        overall_gpa = total_gpa / total_credits if total_credits > 0 else 0
     
+    overall_gpa = total_gpa / total_credits if total_credits > 0 else 0
     pass_rate = round((passed_subjects / total_subjects) * 100, 2) if total_subjects > 0 else 0
     
     return render_template('student_results.html',
                          student=student,
-                         user=user,  # Pass user object for profile picture
+                         user=user,
                          results_by_semester=results_by_semester,
                          overall_gpa=round(overall_gpa, 2),
                          total_credits=total_credits,
@@ -1636,17 +1956,600 @@ def student_results():
                          best_subject_grade=best_grade,
                          pass_rate=pass_rate)
 
-# Helper function to convert grade to numerical value
+
+@app.route('/student/transcript')
+@login_required
+@role_required(['student'])
+@first_login_required
+@student_approved_required
+def student_transcript():
+    student = Student.query.filter_by(user_id=session['user_id']).first()
+    if not student:
+        flash('Student profile not found', 'error')
+        return redirect(url_for('logout'))
+    
+    # Get all approved results
+    results = db.session.query(Result, Subject).join(Subject).filter(
+        Result.student_id == student.id,
+        Result.status == 'approved'
+    ).order_by(Subject.semester, Subject.subject_name).all()
+    
+    # Group results by semester
+    transcript_data = {}
+    overall_gpa = 0
+    overall_credits = 0
+    passed_subjects = 0
+    total_subjects = 0
+    
+    # Track best and worst subjects
+    best_subject = None
+    worst_subject = None
+    
+    for result, subject in results:
+        semester = subject.semester
+        if semester not in transcript_data:
+            transcript_data[semester] = {
+                'subjects': [],
+                'semester_gpa': 0,
+                'semester_credits': 0,
+                'semester_points': 0
+            }
+        
+        # Add subject to semester - FIXED: using result.marks instead of result.marks_obtained
+        subject_entry = {
+            'subject_code': subject.subject_code,
+            'subject_name': subject.subject_name,
+            'credits': subject.credits,
+            'grade': result.grade,
+            'gpa': result.gpa,
+            'marks': result.marks  # FIXED: This was result.marks_obtained
+        }
+        transcript_data[semester]['subjects'].append(subject_entry)
+        
+        # Calculate semester GPA
+        transcript_data[semester]['semester_points'] += result.gpa * subject.credits
+        transcript_data[semester]['semester_credits'] += subject.credits
+        
+        # Calculate overall totals
+        overall_gpa += result.gpa * subject.credits
+        overall_credits += subject.credits
+        total_subjects += 1
+        
+        # Track passed subjects
+        if result.gpa >= 1.0:  # Minimum passing GPA
+            passed_subjects += 1
+        
+        # Track best and worst subjects - FIXED: using result.marks instead of result.marks_obtained
+        if not best_subject or result.gpa > best_subject['gpa']:
+            best_subject = {
+                'subject': subject.subject_name,
+                'grade': result.grade,
+                'gpa': result.gpa,
+                'marks': result.marks  # FIXED: This was result.marks_obtained
+            }
+            
+        if not worst_subject or result.gpa < worst_subject['gpa']:
+            worst_subject = {
+                'subject': subject.subject_name,
+                'grade': result.grade,
+                'gpa': result.gpa,
+                'marks': result.marks  # FIXED: This was result.marks_obtained
+            }
+    
+    # Calculate semester GPAs
+    for semester in transcript_data:
+        if transcript_data[semester]['semester_credits'] > 0:
+            transcript_data[semester]['semester_gpa'] = transcript_data[semester]['semester_points'] / transcript_data[semester]['semester_credits']
+    
+    # Calculate overall GPA
+    overall_gpa = overall_gpa / overall_credits if overall_credits > 0 else 0
+    
+    # Calculate pass rate
+    pass_rate = round((passed_subjects / total_subjects) * 100, 1) if total_subjects > 0 else 0
+    
+    # Sort semesters
+    sorted_semesters = sorted(transcript_data.keys())
+    
+    return render_template('student_transcript.html',
+                         student=student,
+                         transcript_data=transcript_data,
+                         sorted_semesters=sorted_semesters,
+                         overall_gpa=round(overall_gpa, 2),
+                         overall_credits=overall_credits,
+                         passed_subjects=passed_subjects,
+                         total_subjects=total_subjects,
+                         pass_rate=pass_rate,
+                         best_subject=best_subject,
+                         worst_subject=worst_subject,
+                         now=datetime.now().strftime("%B %d, %Y"))
+
+
+# ============= HELPER FUNCTIONS =============
+
 def grade_to_value(grade):
+    """Convert grade letter to numeric value for comparison"""
     grade_values = {
-        'A+': 12, 'A': 11, 'A-': 10,
-        'B+': 9, 'B': 8, 'B-': 7,
-        'C+': 6, 'C': 5, 'C-': 4,
-        'D+': 3, 'D': 2, 'F': 0
+        'A+': 4.0, 'A': 4.0, 'A-': 3.7,
+        'B+': 3.3, 'B': 3.0, 'B-': 2.7,
+        'C+': 2.3, 'C': 2.0, 'C-': 1.7,
+        'D+': 1.3, 'D': 1.0, 'F': 0.0
     }
-    return grade_values.get(grade, 0)
+    return grade_values.get(grade, 0.0)
 
 
+# ============= API ENDPOINTS FOR AJAX =============
+
+@app.route('/api/student/notifications/count')
+@login_required
+@role_required(['student'])
+def get_notification_count():
+    """Get unread notification count for student"""
+    student = Student.query.filter_by(user_id=session['user_id']).first()
+    if not student:
+        return jsonify({'count': 0})
+    
+    count = ResultNotification.query.filter_by(
+        student_id=student.id,
+        is_read=False
+    ).count()
+    return jsonify({'count': count})
+
+
+@app.route('/admin/overview')
+@login_required
+@role_required(['admin'])
+def admin_overview():
+    """Admin overview with summary of all activities"""
+    try:
+        # Get basic statistics
+        total_students = Student.query.count()
+        total_teachers = Teacher.query.count()
+        total_subjects = Subject.query.count()
+        
+        # Get pending approvals
+        pending_results = Result.query.filter_by(status='pending').count()
+        
+        # Get course statistics - fixed query
+        courses_stats = db.session.query(
+            Student.course,
+            db.func.count(Student.id)
+        ).group_by(Student.course).all()
+        
+        # Convert to list of dictionaries for easier template handling
+        courses_stats_list = [{'course': course, 'count': count} for course, count in courses_stats]
+        
+        # Get semester statistics - fixed query
+        semester_stats = db.session.query(
+            Student.semester,
+            db.func.count(Student.id)
+        ).group_by(Student.semester).order_by(Student.semester).all()
+        
+        # Convert to list of dictionaries
+        semester_stats_list = [{'semester': semester, 'count': count} for semester, count in semester_stats]
+        
+        # Get recent result activities with explicit joins
+        recent_activities = db.session.query(
+            Result, Student, Subject, User
+        ).select_from(Result)\
+         .join(Student, Result.student_id == Student.id)\
+         .join(Subject, Result.subject_id == Subject.id)\
+         .join(User, Student.user_id == User.id)\
+         .order_by(Result.submitted_at.desc())\
+         .limit(10).all()
+        
+        # Get recent system activities
+        recent_system_activities = ActivityLog.query\
+            .order_by(ActivityLog.timestamp.desc())\
+            .limit(5).all()
+        
+        # Get additional stats
+        approved_results_count = Result.query.filter_by(status='approved').count()
+        published_results_count = Result.query.filter_by(is_published=True).count()
+        
+        return render_template('admin_overview.html',
+                             total_students=total_students,
+                             total_teachers=total_teachers,
+                             total_subjects=total_subjects,
+                             pending_results=pending_results,
+                             courses_stats=courses_stats_list,
+                             semester_stats=semester_stats_list,
+                             recent_activities=recent_activities,
+                             recent_system_activities=recent_system_activities,
+                             approved_results_count=approved_results_count,
+                             published_results_count=published_results_count)
+    except Exception as e:
+        flash(f'Error loading overview: {str(e)}', 'error')        
+    
+@app.route('/admin/results')
+@login_required
+@role_required(['admin'])
+def admin_results():
+    """Admin view of all results with filtering and search"""
+    try:
+        # Get filter parameters
+        semester = request.args.get('semester', '')
+        status = request.args.get('status', '')
+        student_search = request.args.get('student_search', '')
+        subject_search = request.args.get('subject_search', '')
+        
+        # Base query with explicit joins
+        query = db.session.query(Result, Student, Subject, User)\
+            .select_from(Result)\
+            .join(Student, Result.student_id == Student.id)\
+            .join(Subject, Result.subject_id == Subject.id)\
+            .join(User, Student.user_id == User.id)
+        
+        # Apply filters
+        if semester:
+            query = query.filter(Subject.semester == semester)
+        if status:
+            query = query.filter(Result.status == status)
+        if student_search:
+            query = query.filter(
+                (User.username.ilike(f'%{student_search}%')) |
+                (User.first_name.ilike(f'%{student_search}%')) |
+                (User.last_name.ilike(f'%{student_search}%')) |
+                (Student.full_name.ilike(f'%{student_search}%'))
+            )
+        if subject_search:
+            query = query.filter(
+                (Subject.subject_name.ilike(f'%{subject_search}%')) |
+                (Subject.subject_code.ilike(f'%{subject_search}%'))
+            )
+        
+        results = query.order_by(Result.submitted_at.desc()).all()
+        
+        return render_template('admin_results.html',
+                             results=results,
+                             semester=semester,
+                             status=status,
+                             student_search=student_search,
+                             subject_search=subject_search)
+    except Exception as e:
+        flash(f'Error loading results: {str(e)}', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/results/<int:result_id>/edit', methods=['GET', 'POST'])
+@login_required
+@role_required(['admin'])
+def admin_edit_result(result_id):
+    """Admin edit result and resend to student"""
+    try:
+        result = Result.query.get_or_404(result_id)
+        student = Student.query.get(result.student_id)
+        subject = Subject.query.get(result.subject_id)
+        user = User.query.get(student.user_id)
+        
+        if request.method == 'POST':
+            # Get form data
+            marks = float(request.form['marks'])
+            grade = request.form['grade']
+            gpa = float(request.form['gpa'])
+            comments = request.form.get('comments', '')
+            is_published = 'is_published' in request.form
+            send_notification = 'send_notification' in request.form
+            
+            # Store old values for notification
+            old_marks = result.marks
+            old_grade = result.grade
+            
+            # Update result
+            result.marks = marks
+            result.grade = grade
+            result.gpa = gpa
+            result.comments = comments
+            result.is_published = is_published
+            result.status = 'approved'
+            
+            # Update published fields if publishing
+            if is_published and not result.published_at:
+                result.published_at = datetime.utcnow()
+                result.published_by = session['user_id']
+            
+            try:
+                db.session.commit()
+                
+                # Send notification if requested and result is published
+                if send_notification and is_published:
+                    # Create notification for student
+                    notification = ResultNotification(
+                        student_id=student.id,
+                        result_id=result.id,
+                        message=f"Your result for {subject.subject_name} has been updated. "
+                               f"Marks: {old_marks} → {marks}, Grade: {old_grade} → {grade}",
+                        notification_type='result_updated'
+                    )
+                    db.session.add(notification)
+                    db.session.commit()
+                    
+                    flash('Result updated and notification sent to student!', 'success')
+                else:
+                    flash('Result updated successfully!', 'success')
+                    
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error updating result: {str(e)}', 'error')
+            
+            return redirect(url_for('admin_results'))
+        
+        return render_template('admin_edit_result.html',
+                             result=result,
+                             student=student,
+                             subject=subject,
+                             user=user)
+    except Exception as e:
+        flash(f'Error loading result: {str(e)}', 'error')
+        return redirect(url_for('admin_results'))
+
+@app.route('/admin/results/<int:result_id>/delete', methods=['POST'])
+@login_required
+@role_required(['admin'])
+def admin_delete_result(result_id):
+    """Admin delete result"""
+    try:
+        result = Result.query.get_or_404(result_id)
+        
+        # Delete associated notifications first
+        ResultNotification.query.filter_by(result_id=result_id).delete()
+        
+        # Delete the result
+        db.session.delete(result)
+        db.session.commit()
+        flash('Result deleted successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting result: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_results'))
+
+@app.route('/admin/activity-log')
+@login_required
+@role_required(['admin'])
+def admin_activity_log():
+    """View complete activity log of all result operations"""
+    try:
+        # Get filter parameters
+        action_type = request.args.get('action_type', '')
+        date_from = request.args.get('date_from', '')
+        date_to = request.args.get('date_to', '')
+        
+        # Base query with explicit joins
+        query = db.session.query(Result, Student, Subject, User)\
+            .select_from(Result)\
+            .join(Student, Result.student_id == Student.id)\
+            .join(Subject, Result.subject_id == Subject.id)\
+            .join(User, Student.user_id == User.id)
+        
+        # Apply filters
+        if action_type:
+            if action_type == 'submitted':
+                query = query.filter(Result.submitted_at != None)
+            elif action_type == 'approved':
+                query = query.filter(Result.approved_at != None)
+            elif action_type == 'published':
+                query = query.filter(Result.published_at != None)
+        
+        if date_from:
+            query = query.filter(Result.submitted_at >= date_from)
+        if date_to:
+            # Add one day to include the entire end date
+            next_day = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+            query = query.filter(Result.submitted_at < next_day)
+        
+        activities = query.order_by(Result.submitted_at.desc()).all()
+        
+        return render_template('admin_activity_log.html',
+                             activities=activities,
+                             action_type=action_type,
+                             date_from=date_from,
+                             date_to=date_to)
+    except Exception as e:
+        flash(f'Error loading activity log: {str(e)}', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/notifications')
+@login_required
+@role_required(['admin'])
+def admin_notifications():
+    """View all notifications sent to students"""
+    try:
+        notifications = db.session.query(
+            ResultNotification, Student, Result, Subject, User
+        ).select_from(ResultNotification)\
+         .join(Student, ResultNotification.student_id == Student.id)\
+         .join(Result, ResultNotification.result_id == Result.id)\
+         .join(Subject, Result.subject_id == Subject.id)\
+         .join(User, Student.user_id == User.id)\
+         .order_by(ResultNotification.created_at.desc()).all()
+        
+        return render_template('admin_notifications.html',
+                             notifications=notifications)
+    except Exception as e:
+        flash(f'Error loading notifications: {str(e)}', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/results/bulk-actions', methods=['POST'])
+@login_required
+@role_required(['admin'])
+def admin_bulk_actions():
+    """Handle bulk actions for results"""
+    try:
+        action = request.form.get('bulk_action')
+        result_ids = request.form.getlist('result_ids')
+        
+        if not result_ids:
+            flash('No results selected!', 'error')
+            return redirect(url_for('admin_results'))
+        
+        # Convert string IDs to integers
+        result_ids = [int(id) for id in result_ids]
+        
+        current_time = datetime.utcnow()
+        current_user = session['user_id']
+        
+        try:
+            if action == 'publish':
+                for result_id in result_ids:
+                    result = Result.query.get(result_id)
+                    if result:
+                        result.is_published = True
+                        result.published_at = current_time
+                        result.published_by = current_user
+                        result.status = 'approved'  # Auto-approve when publishing
+                
+                flash(f'Published {len(result_ids)} results!', 'success')
+                
+            elif action == 'unpublish':
+                Result.query.filter(Result.id.in_(result_ids)).update(
+                    {'is_published': False},
+                    synchronize_session=False
+                )
+                flash(f'Unpublished {len(result_ids)} results!', 'success')
+                
+            elif action == 'approve':
+                for result_id in result_ids:
+                    result = Result.query.get(result_id)
+                    if result:
+                        result.status = 'approved'
+                        result.approved_at = current_time
+                        result.approved_by = current_user
+                
+                flash(f'Approved {len(result_ids)} results!', 'success')
+                
+            elif action == 'reject':
+                Result.query.filter(Result.id.in_(result_ids)).update(
+                    {'status': 'rejected', 'is_published': False},
+                    synchronize_session=False
+                )
+                flash(f'Rejected {len(result_ids)} results!', 'success')
+                
+            elif action == 'delete':
+                # Delete notifications first
+                ResultNotification.query.filter(
+                    ResultNotification.result_id.in_(result_ids)
+                ).delete(synchronize_session=False)
+                
+                # Delete results
+                Result.query.filter(Result.id.in_(result_ids)).delete(
+                    synchronize_session=False
+                )
+                flash(f'Deleted {len(result_ids)} results!', 'success')
+            
+            db.session.commit()
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error performing bulk action: {str(e)}', 'error')
+        
+        return redirect(url_for('admin_results'))
+    except Exception as e:
+        flash(f'Error processing bulk action: {str(e)}', 'error')
+        return redirect(url_for('admin_results'))
+
+@app.route('/admin/student/<int:student_id>/results')
+@login_required
+@role_required(['admin'])
+def admin_student_results(student_id):
+    """View all results for a specific student"""
+    try:
+        student = Student.query.get_or_404(student_id)
+        user = User.query.get(student.user_id)
+        
+        # Get all results for this student with explicit joins
+        results = db.session.query(Result, Subject)\
+            .select_from(Result)\
+            .join(Subject, Result.subject_id == Subject.id)\
+            .filter(Result.student_id == student_id)\
+            .order_by(Subject.semester, Subject.subject_name).all()
+        
+        # Group by semester
+        results_by_semester = {}
+        for result, subject in results:
+            semester = subject.semester
+            if semester not in results_by_semester:
+                results_by_semester[semester] = []
+            results_by_semester[semester].append({
+                'subject': subject,
+                'result': result
+            })
+        
+        return render_template('admin_student_results.html',
+                             student=student,
+                             user=user,
+                             results_by_semester=results_by_semester)
+    except Exception as e:
+        flash(f'Error loading student results: {str(e)}', 'error')
+        return redirect(url_for('admin_results'))
+
+@app.route('/admin/students')
+@login_required
+@role_required(['admin'])
+def admin_students():
+    """View all students"""
+    try:
+        search = request.args.get('search', '')
+        course = request.args.get('course', '')
+        semester = request.args.get('semester', '')
+        status = request.args.get('status', '')
+        
+        # Base query with explicit join
+        query = db.session.query(Student, User)\
+            .select_from(Student)\
+            .join(User, Student.user_id == User.id)
+        
+        # Apply filters
+        if search:
+            query = query.filter(
+                (User.username.ilike(f'%{search}%')) |
+                (User.first_name.ilike(f'%{search}%')) |
+                (User.last_name.ilike(f'%{search}%')) |
+                (Student.full_name.ilike(f'%{search}%')) |
+                (Student.roll_number.ilike(f'%{search}%'))
+            )
+        if course:
+            query = query.filter(Student.course == course)
+        if semester:
+            query = query.filter(Student.semester == semester)
+        if status:
+            query = query.filter(Student.status == status)
+        
+        students = query.order_by(User.first_name, User.last_name).all()
+        
+        # Get unique courses and semesters for filters
+        courses = db.session.query(Student.course).distinct().all()
+        courses = [c[0] for c in courses if c[0]]
+        
+        semesters = db.session.query(Student.semester).distinct().all()
+        semesters = [s[0] for s in semesters if s[0]]
+        
+        return render_template('admin_students.html',
+                             students=students,
+                             search=search,
+                             course=course,
+                             semester=semester,
+                             status=status,
+                             courses=courses,
+                             semesters=semesters)
+    except Exception as e:
+        flash(f'Error loading students: {str(e)}', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+@app.route('/api/academic/publication-stats')
+@login_required
+@role_required(['academic'])
+def get_publication_stats():
+    """Get statistics for result publication"""
+    
+    total_approved = Result.query.filter_by(status='approved').count()
+    total_published = Result.query.filter_by(status='approved', is_published=True).count()
+    total_unpublished = total_approved - total_published
+    
+    return jsonify({
+        'total_approved': total_approved,
+        'total_published': total_published,
+        'total_unpublished': total_unpublished,
+        'publication_rate': round((total_published / total_approved * 100), 1) if total_approved > 0 else 0
+    })
 # API ROUTES 
 @app.route('/api/students-by-course/<course>')
 @login_required
@@ -3284,6 +4187,22 @@ def student_attendance_history():
                          present_count=present_count,
                          late_count=late_count,
                          attendance_rate=attendance_rate)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
 @app.route('/admin/lessons')
 @login_required

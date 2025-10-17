@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4">Admin Dashboard</h1>
+    
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h4 class="card-title">{{ total_students }}</h4>
+                    <p class="card-text">Total Students</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h4 class="card-title">{{ total_teachers }}</h4>
+                    <p class="card-text">Total Teachers</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h4 class="card-title">{{ total_subjects }}</h4>
+                    <p class="card-text">Total Subjects</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h4 class="card-title">{{ pending_results }}</h4>
+                    <p class="card-text">Pending Results</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="{{ url_for('admin_results') }}" class="btn btn-primary">
+                            <i class="fas fa-cog"></i> Manage Results
+                        </a>
+                        <a href="{{ url_for('admin_results') }}?status=pending" class="btn btn-warning">
+                            <i class="fas fa-clock"></i> Review Pending Results
+                        </a>
+                        <a href="{{ url_for('admin_students') }}" class="btn btn-info">
+                            <i class="fas fa-users"></i> Manage Students
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activities -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Recent Result Activities</h5>
+        </div>
+        <div class="card-body">
+            {% if recent_activities %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Subject</th>
+                            <th>Marks</th>
+                            <th>Grade</th>
+                            <th>Status</th>
+                            <th>Submitted</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result, student, subject, user in recent_activities %}
+                        <tr>
+                            <td>{{ user.first_name }} {{ user.last_name }}</td>
+                            <td>{{ subject.subject_name }}</td>
+                            <td>{{ result.marks }}</td>
+                            <td>{{ result.grade }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if result.status == 'approved' else 'warning' if result.status == 'pending' else 'danger' }}">
+                                    {{ result.status }}
+                                </span>
+                            </td>
+                            <td>{{ result.submitted_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted">No recent activities</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,13 +1,23 @@
-{% extends "base_cal.html" %}
+{% extends "base.html" %}
 
 {% block title %}Academic Calendar{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="mb-0">Academic Calendar</h2>
-    <div>
+    <div class="d-flex gap-2">
+        <!-- View Toggle -->
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-primary active" data-view="list">
+                <i class="bi bi-list-ul"></i> List
+            </button>
+            <button type="button" class="btn btn-outline-primary" data-view="calendar">
+                <i class="bi bi-calendar-month"></i> Calendar
+            </button>
+        </div>
+        
         {% if user.role in ['academic', 'teacher'] %}
-        <a href="{{ url_for('add_calendar_event') }}" class="btn btn-primary me-2">
+        <a href="{{ url_for('add_calendar_event') }}" class="btn btn-primary">
             <i class="bi bi-plus-lg"></i> Add Event
         </a>
         <a href="{{ url_for('import_calendar_events') }}" class="btn btn-outline-secondary">
@@ -17,116 +27,439 @@
     </div>
 </div>
 
-
-<div class="row">
-    <div class="col-md-6">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4>Upcoming Events</h4>
-            <div class="text-muted small">Next 7 days</div>
-        </div>
-        
-        {% for event in events %}
-            {% if event.start_date > now and event.start_date < now + timedelta(days=7) %}
-            <div class="card event-card mb-3" style="border-left-color: {{ event.color }};">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <h5 class="card-title">{{ event.title }}</h5>
-                        <span class="badge bg-light text-dark">{{ event.event_type|capitalize }}</span>
-                    </div>
-                    <div class="mb-2">
-                        <i class="bi bi-calendar me-1"></i>
-                        {{ event.start_date.strftime('%a, %b %d, %Y') }}
-                        <span class="mx-1">•</span>
-                        <i class="bi bi-clock me-1"></i>
-                        {{ event.start_date.strftime('%I:%M %p') }} - {{ event.end_date.strftime('%I:%M %p') }}
-                    </div>
-                    <p class="card-text text-muted">{{ event.description|truncate(120) }}</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted">
-                            <i class="bi bi-tag me-1"></i>
-                            {{ event.target_type|capitalize }}: {{ event.target_value or 'All' }}
-                        </small>
-                        <a href="#" class="btn btn-sm btn-outline-primary">Details</a>
+<!-- Quick Filters -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body py-3">
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <span class="fw-bold me-2">Filter:</span>
+                    <button class="btn btn-sm btn-outline-secondary active" data-filter="all">All Events</button>
+                    {% for type, data in event_types.items() %}
+                    <button class="btn btn-sm btn-outline-secondary" data-filter="{{ type }}" style="border-left-color: {{ data.color }}; border-left-width: 3px;">
+                        {{ type|capitalize }}
+                    </button>
+                    {% endfor %}
+                    <div class="ms-auto">
+                        <div class="input-group input-group-sm" style="width: 250px;">
+                            <input type="text" class="form-control" placeholder="Search events..." id="eventSearch">
+                            <button class="btn btn-outline-secondary" type="button" id="clearSearch">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-            {% endif %}
-        {% endfor %}
+        </div>
     </div>
-    
-    <div class="col-md-6">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4>Event Types</h4>
+</div>
+
+<!-- Calendar View (Hidden by default) -->
+<div id="calendarView" class="d-none mb-4">
+    <div class="card">
+        <div class="card-body">
+            <div id="calendar"></div>
+        </div>
+    </div>
+</div>
+
+<!-- List View -->
+<div id="listView">
+    <div class="row">
+        <div class="col-md-8">
+            <!-- Date Navigation -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <button class="btn btn-outline-primary btn-sm" id="prevWeek">
+                            <i class="bi bi-chevron-left"></i> Previous Week
+                        </button>
+                        <h5 class="mb-0" id="currentWeekRange"></h5>
+                        <button class="btn btn-outline-primary btn-sm" id="nextWeek">
+                            Next Week <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Events Timeline -->
+            <div id="eventsTimeline">
+                {% for day in week_days %}
+                <div class="card mb-3 day-events" data-date="{{ day.date.strftime('%Y-%m-%d') }}">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">
+                            {{ day.date.strftime('%A, %b %d, %Y') }}
+                            <span class="badge bg-primary ms-2">{{ day.events|length }} events</span>
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        {% if day.events %}
+                            {% for event in day.events %}
+                            <div class="event-item mb-3 p-3 border rounded" data-event-type="{{ event.event_type }}" data-search-text="{{ event.title.lower() }} {{ event.description.lower() }}">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <div class="rounded-circle me-2" style="width: 12px; height: 12px; background-color: {{ event.color }};"></div>
+                                            <h6 class="mb-0 me-2">{{ event.title }}</h6>
+                                            <span class="badge bg-light text-dark small">{{ event.event_type|capitalize }}</span>
+                                            {% if event.is_recurring %}
+                                            <span class="badge bg-info ms-1 small">
+                                                <i class="bi bi-arrow-repeat"></i> Recurring
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="mb-2">
+                                            <i class="bi bi-clock me-1"></i>
+                                            {{ event.start_date.strftime('%I:%M %p') }} - {{ event.end_date.strftime('%I:%M %p') }}
+                                        </div>
+                                        {% if event.description %}
+                                        <p class="text-muted small mb-2">{{ event.description }}</p>
+                                        {% endif %}
+                                        <div class="d-flex align-items-center">
+                                            <small class="text-muted me-3">
+                                                <i class="bi bi-tag me-1"></i>
+                                                {{ event.target_type|capitalize }}: {{ event.target_value or 'All' }}
+                                            </small>
+                                            {% if event.location %}
+                                            <small class="text-muted">
+                                                <i class="bi bi-geo-alt me-1"></i>
+                                                {{ event.location }}
+                                            </small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                            <i class="bi bi-three-dots"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="#"><i class="bi bi-eye me-2"></i>View Details</a></li>
+                                            {% if user.role in ['academic', 'teacher'] %}
+                                            <li><a class="dropdown-item" href="#"><i class="bi bi-pencil me-2"></i>Edit</a></li>
+                                            <li><a class="dropdown-item text-danger" href="#"><i class="bi bi-trash me-2"></i>Delete</a></li>
+                                            {% endif %}
+                                            <li><a class="dropdown-item" href="#"><i class="bi bi-calendar-plus me-2"></i>Add to Personal Calendar</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted text-center mb-0">No events scheduled for this day</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
         </div>
         
-        <div class="card mb-4">
-            <div class="card-body">
-                <div class="row">
+        <div class="col-md-4">
+            <!-- Quick Stats -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">This Week Overview</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="border-end">
+                                <div class="h5 mb-1 text-primary" id="totalEvents">0</div>
+                                <small class="text-muted">Total Events</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="border-end">
+                                <div class="h5 mb-1 text-success" id="upcomingEvents">0</div>
+                                <small class="text-muted">Upcoming</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div>
+                                <div class="h5 mb-1 text-info" id="completedEvents">0</div>
+                                <small class="text-muted">Completed</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Types Legend -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Event Types</h6>
+                    <button class="btn btn-sm btn-outline-secondary" id="toggleLegend">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </div>
+                <div class="card-body">
                     {% for type, data in event_types.items() %}
-                    <div class="col-md-6 mb-3">
-                        <div class="d-flex align-items-center">
-                            <div class="rounded-circle me-3" style="width: 16px; height: 16px; background-color: {{ data.color }};"></div>
-                            <div>{{ type|capitalize }}</div>
+                    <div class="d-flex align-items-center mb-2 event-type-item" data-type="{{ type }}">
+                        <div class="rounded-circle me-3" style="width: 16px; height: 16px; background-color: {{ data.color }};"></div>
+                        <div class="flex-grow-1">{{ type|capitalize }}</div>
+                        <span class="badge bg-light text-dark">{{ data.count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <a href="{{ url_for('add_calendar_event') }}" class="btn btn-outline-primary w-100 py-2">
+                                <i class="bi bi-plus-circle"></i>
+                                <small>Create Event</small>
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="{{ url_for('import_calendar_events') }}" class="btn btn-outline-success w-100 py-2">
+                                <i class="bi bi-upload"></i>
+                                <small>Import</small>
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <button class="btn btn-outline-info w-100 py-2" id="exportCalendar">
+                                <i class="bi bi-download"></i>
+                                <small>Export</small>
+                            </button>
+                        </div>
+                        <div class="col-6">
+                            <button class="btn btn-outline-secondary w-100 py-2" id="syncCalendar">
+                                <i class="bi bi-arrow-repeat"></i>
+                                <small>Sync</small>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upcoming Deadlines -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Upcoming Deadlines</h6>
+                </div>
+                <div class="card-body">
+                    {% for event in deadline_events %}
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="rounded-circle me-3 bg-warning" style="width: 8px; height: 8px;"></div>
+                        <div class="flex-grow-1">
+                            <small class="fw-bold d-block">{{ event.title }}</small>
+                            <small class="text-muted">{{ event.start_date.strftime('%b %d') }}</small>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
             </div>
         </div>
-        
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4>Quick Actions</h4>
-        </div>
-        
-        <div class="row g-3 mb-4">
-            <div class="col-md-6">
-                <a href="{{ url_for('add_calendar_event') }}" class="card h-100 text-center text-decoration-none">
-                    <div class="card-body">
-                        <div class="text-primary mb-2">
-                            <i class="bi bi-plus-circle" style="font-size: 2rem;"></i>
-                        </div>
-                        <h5 class="card-title">Create Event</h5>
-                    </div>
-                </a>
+    </div>
+</div>
+
+<!-- Event Modal -->
+<div class="modal fade" id="eventModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="eventModalTitle">Event Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="col-md-6">
-                <a href="{{ url_for('import_calendar_events') }}" class="card h-100 text-center text-decoration-none">
-                    <div class="card-body">
-                        <div class="text-success mb-2">
-                            <i class="bi bi-upload" style="font-size: 2rem;"></i>
-                        </div>
-                        <h5 class="card-title">Import Events</h5>
-                    </div>
-                </a>
+            <div class="modal-body" id="eventModalBody">
+                <!-- Event details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary">Add to Calendar</button>
             </div>
         </div>
     </div>
 </div>
 {% endblock %}
 
+{% block styles %}
+<style>
+.event-item {
+    transition: all 0.3s ease;
+    border-left: 4px solid var(--event-color, #007bff);
+}
+
+.event-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.day-events {
+    transition: all 0.3s ease;
+}
+
+.calendar-view-active #listView {
+    display: none;
+}
+
+.calendar-view-active #calendarView {
+    display: block;
+}
+
+#calendar {
+    min-height: 600px;
+}
+
+.event-type-item {
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.event-type-item:hover {
+    background-color: #f8f9fa;
+}
+
+.event-type-item.hidden {
+    opacity: 0.5;
+}
+</style>
+{% endblock %}
+
 {% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const calendarEl = document.getElementById('calendar');
-        const calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth',
-            headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
-            },
-            events: "{{ url_for('api_calendar_events') }}",
-            eventClick: function(info) {
-                // Handle event click (show modal with details)
-                console.log('Event clicked:', info.event);
-            },
-            eventTimeFormat: {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize FullCalendar
+    const calendarEl = document.getElementById('calendar');
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+        },
+        events: "{{ url_for('api_calendar_events') }}",
+        eventClick: function(info) {
+            // Show event details in modal
+            showEventModal(info.event);
+        },
+        eventTimeFormat: {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        }
+    });
+    calendar.render();
+
+    // View Toggle
+    const viewButtons = document.querySelectorAll('[data-view]');
+    viewButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const view = this.dataset.view;
+            viewButtons.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            if (view === 'calendar') {
+                document.body.classList.add('calendar-view-active');
+            } else {
+                document.body.classList.remove('calendar-view-active');
             }
         });
-        calendar.render();
     });
+
+    // Event Filtering
+    const filterButtons = document.querySelectorAll('[data-filter]');
+    filterButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const filter = this.dataset.filter;
+            filterButtons.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            document.querySelectorAll('.event-item').forEach(item => {
+                if (filter === 'all' || item.dataset.eventType === filter) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    });
+
+    // Search Functionality
+    const searchInput = document.getElementById('eventSearch');
+    const clearSearch = document.getElementById('clearSearch');
+    
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        document.querySelectorAll('.event-item').forEach(item => {
+            const searchText = item.dataset.searchText;
+            if (searchText.includes(searchTerm)) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+    
+    clearSearch.addEventListener('click', function() {
+        searchInput.value = '';
+        searchInput.dispatchEvent(new Event('input'));
+    });
+
+    // Date Navigation
+    let currentDate = new Date();
+    updateWeekRange();
+    
+    document.getElementById('prevWeek').addEventListener('click', function() {
+        currentDate.setDate(currentDate.getDate() - 7);
+        updateWeekRange();
+        loadWeekEvents();
+    });
+    
+    document.getElementById('nextWeek').addEventListener('click', function() {
+        currentDate.setDate(currentDate.getDate() + 7);
+        updateWeekRange();
+        loadWeekEvents();
+    });
+
+    // Event Type Legend Toggle
+    document.getElementById('toggleLegend').addEventListener('click', function() {
+        document.querySelectorAll('.event-type-item').forEach(item => {
+            item.classList.toggle('hidden');
+        });
+    });
+
+    // Update Stats
+    updateEventStats();
+
+    function updateWeekRange() {
+        const startOfWeek = new Date(currentDate);
+        startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        
+        document.getElementById('currentWeekRange').textContent = 
+            `${startOfWeek.toLocaleDateString()} - ${endOfWeek.toLocaleDateString()}`;
+    }
+
+    function updateEventStats() {
+        const total = document.querySelectorAll('.event-item').length;
+        const upcoming = document.querySelectorAll('.event-item').length; // Simplified
+        const completed = 0; // You can implement completion logic
+        
+        document.getElementById('totalEvents').textContent = total;
+        document.getElementById('upcomingEvents').textContent = upcoming;
+        document.getElementById('completedEvents').textContent = completed;
+    }
+
+    function showEventModal(event) {
+        // Implement modal content loading
+        document.getElementById('eventModalTitle').textContent = event.title;
+        // Load event details into modal body
+        document.getElementById('eventModal').modal('show');
+    }
+
+    function loadWeekEvents() {
+        // Implement AJAX loading of week events
+        console.log('Loading events for week starting:', currentDate);
+    }
+});
 </script>
 {% endblock %}

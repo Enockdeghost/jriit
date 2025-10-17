@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}Academic Results - Student Portal{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 text-gradient-primary mb-2">Academic Results</h1>
+            <p class="text-muted mb-0">Comprehensive view of all your published results</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('student_transcript') }}" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-file-pdf me-2"></i>View Transcript
+            </a>
+            <a href="{{ url_for('student_dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-2"></i>Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Overall Statistics -->
+    <div class="row mb-4">
+        <div class="col-xl-2 col-md-4 mb-3">
+            <div class="card stat-card bg-primary text-white">
+                <div class="card-body text-center py-3">
+                    <h4 class="mb-1">{{ "%.2f"|format(overall_gpa) }}</h4>
+                    <small>Overall GPA</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 mb-3">
+            <div class="card stat-card bg-success text-white">
+                <div class="card-body text-center py-3">
+                    <h4 class="mb-1">{{ total_credits }}</h4>
+                    <small>Total Credits</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 mb-3">
+            <div class="card stat-card bg-info text-white">
+                <div class="card-body text-center py-3">
+                    <h4 class="mb-1">{{ passed_subjects }}/{{ total_subjects }}</h4>
+                    <small>Subjects Passed</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 mb-3">
+            <div class="card stat-card bg-warning text-dark">
+                <div class="card-body text-center py-3">
+                    <h4 class="mb-1">{{ pass_rate }}%</h4>
+                    <small>Success Rate</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 mb-3">
+            <div class="card stat-card bg-dark text-white">
+                <div class="card-body text-center py-3">
+                    <h4 class="mb-1">{{ best_subject_grade }}</h4>
+                    <small>Best Grade</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-2 col-md-4 mb-3">
+            <div class="card stat-card bg-secondary text-white">
+                <div class="card-body text-center py-3">
+                    <h4 class="mb-1">{{ total_subjects }}</h4>
+                    <small>Total Subjects</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results by Semester -->
+    <div class="row">
+        <div class="col-12">
+            {% if results_by_semester %}
+                {% for semester, semester_data in results_by_semester.items()|sort(reverse=True) %}
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-gradient-primary text-white py-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h4 class="mb-0">
+                                <i class="fas fa-graduation-cap me-2"></i>Semester {{ semester }}
+                            </h4>
+                            <div class="text-end">
+                                <span class="badge bg-light text-dark fs-6">Semester GPA: {{ "%.2f"|format(semester_data.semester_gpa) }}</span>
+                                <small class="d-block text-white-70">{{ semester_data.results|length }} subjects • {{ semester_data.semester_credits }} credits</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Subject Code</th>
+                                        <th>Subject Name</th>
+                                        <th class="text-center">Credits</th>
+                                        <th class="text-center">Marks Obtained</th>
+                                        <th class="text-center">Total Marks</th>
+                                        <th class="text-center">Percentage</th>
+                                        <th class="text-center">Grade</th>
+                                        <th class="text-center">GPA</th>
+                                        <th class="text-center">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in semester_data.results %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ item.subject.subject_code }}</strong>
+                                        </td>
+                                        <td>
+                                            <h6 class="mb-1 text-primary">{{ item.subject.subject_name }}</h6>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-secondary">{{ item.subject.credits }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <strong>{{ item.result.marks_obtained }}</strong>
+                                        </td>
+                                        <td class="text-center">
+                                            {{ item.result.total_marks }}
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="fw-bold">
+                                                {{ "%.1f"|format((item.result.marks_obtained / item.result.total_marks * 100)) }}%
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge {% if item.result.grade in ['A', 'A+', 'A-'] %}bg-success
+                                                            {% elif item.result.grade in ['B+', 'B', 'B-'] %}bg-info
+                                                            {% elif item.result.grade in ['C+', 'C', 'C-'] %}bg-warning
+                                                            {% else %}bg-danger{% endif %} fs-6">
+                                                {{ item.result.grade }}
+                                            </span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="fw-bold text-dark">{{ "%.2f"|format(item.result.gpa) }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            {% if item.result.gpa >= 1.0 %}
+                                            <span class="badge bg-success">Passed</span>
+                                            {% else %}
+                                            <span class="badge bg-danger">Failed</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot class="table-secondary">
+                                    <tr>
+                                        <td colspan="2" class="text-end"><strong>Semester Summary:</strong></td>
+                                        <td class="text-center"><strong>{{ semester_data.semester_credits }}</strong></td>
+                                        <td colspan="3"></td>
+                                        <td class="text-center"><strong>GPA: {{ "%.2f"|format(semester_data.semester_gpa) }}</strong></td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <div class="empty-state">
+                        <i class="fas fa-chart-bar fa-4x text-muted mb-3 opacity-50"></i>
+                        <h4 class="text-muted">No Results Available</h4>
+                        <p class="text-muted mb-4">You don't have any published results yet.</p>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Results will appear here once they are published by your institution.
+                        </div>
+                        <a href="{{ url_for('student_dashboard') }}" class="btn btn-primary">
+                            <i class="fas fa-home me-2"></i>Return to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Legend -->
+    {% if results_by_semester %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-0 bg-light">
+                <div class="card-body">
+                    <h6 class="mb-3"><i class="fas fa-info-circle me-2"></i>Grade Legend</h6>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <span class="badge bg-success me-2">A+, A, A-</span>
+                            <small class="text-muted">Excellent (4.0 - 3.7)</small>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="badge bg-info me-2">B+, B, B-</span>
+                            <small class="text-muted">Good (3.3 - 2.7)</small>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="badge bg-warning me-2">C+, C, C-</span>
+                            <small class="text-muted">Satisfactory (2.3 - 1.7)</small>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="badge bg-danger me-2">D, F</span>
+                            <small class="text-muted">Poor/Below (1.0 - 0.0)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Initialize DataTables if needed
+    $('table').DataTable({
+        pageLength: 25,
+        order: [[0, 'asc']],
+        language: {
+            search: "_INPUT_",
+            searchPlaceholder: "Search subjects...",
+            lengthMenu: "Show _MENU_ subjects"
+        }
+    });
+});
+</script>
+{% endblock %}
+
+{% block styles %}
+<style>
+.stat-card {
+    border: none;
+    border-radius: 8px;
+    transition: transform 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+}
+
+.text-gradient-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.empty-state {
+    padding: 2rem 1rem;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0,0,0,0.02);
+}
+
+.text-white-70 {
+    color: rgba(255,255,255,0.7);
+}
+</style>
+{% endblock %}

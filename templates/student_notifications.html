@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications - Student Portal{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 text-gradient-primary mb-2">Notifications</h1>
+            <p class="text-muted mb-0">Stay updated with your academic progress</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('student_dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Notifications List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-bell me-2"></i>All Notifications
+                        </h5>
+                        <span class="badge bg-light text-dark">{{ notifications|length }} total</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    {% if notifications %}
+                    <div class="list-group list-group-flush">
+                        {% for notification, result, subject in notifications %}
+                        <div class="list-group-item border-0 py-3 {% if not notification.is_read %}bg-light{% endif %}">
+                            <div class="d-flex align-items-start">
+                                <div class="flex-shrink-0">
+                                    <div class="avatar-sm {% if notification.is_read %}bg-secondary{% else %}bg-primary{% endif %} text-white rounded-circle d-flex align-items-center justify-content-center">
+                                        <i class="fas {% if notification.message.startswith('Your result') %}fa-chart-bar{% else %}fa-info-circle{% endif %}"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <h6 class="mb-1 {% if not notification.is_read %}text-primary fw-bold{% endif %}">
+                                            {{ notification.message }}
+                                        </h6>
+                                        <small class="text-muted">{{ notification.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                    </div>
+                                    <p class="mb-1 text-muted small">
+                                        <i class="fas fa-book me-1"></i>{{ subject.subject_name }}
+                                        {% if result %}
+                                        • <i class="fas fa-chart-line me-1"></i>Grade: {{ result.grade }}
+                                        {% endif %}
+                                    </p>
+                                    {% if not notification.is_read %}
+                                    <span class="badge bg-success">New</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <div class="empty-state">
+                            <i class="fas fa-bell-slash fa-4x text-muted mb-3 opacity-50"></i>
+                            <h4 class="text-muted">No Notifications</h4>
+                            <p class="text-muted mb-4">You don't have any notifications at the moment.</p>
+                            <a href="{{ url_for('student_dashboard') }}" class="btn btn-primary">
+                                <i class="fas fa-home me-2"></i>Go to Dashboard
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Tips -->
+    {% if notifications %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <div class="d-flex">
+                    <i class="fas fa-info-circle fa-2x me-3"></i>
+                    <div>
+                        <h6 class="alert-heading mb-2">About Notifications</h6>
+                        <p class="mb-0 small">
+                            You'll receive notifications when:
+                            <br>• New results are published
+                            <br>• There are updates to your academic records
+                            <br>• Important announcements are made
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+<style>
+.avatar-sm {
+    width: 40px;
+    height: 40px;
+    font-size: 14px;
+}
+
+.empty-state {
+    padding: 2rem 1rem;
+}
+
+.text-gradient-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.list-group-item:hover {
+    background-color: rgba(0,123,255,0.05) !important;
+}
+</style>

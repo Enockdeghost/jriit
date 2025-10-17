@@ -274,6 +274,15 @@
             <a href="{{ url_for('calendar') }}" class="nav-link">
                 <i class="bi bi-calendar-event me-2"></i>Calendar
             </a>
+            <a class="nav-link" href="{{ url_for('admin_results') }}">
+                <i class="fas fa-poll me-2"></i>Manage Results
+            </a>
+            <a class="nav-link" href="{{ url_for('admin_activity_log') }}">
+                <i class="fas fa-clipboard-list me-2"></i>Activity Log
+            </a>
+            <a class="nav-link" href="{{ url_for('admin_notifications') }}">
+                <i class="fas fa-bell me-2"></i>Notifications
+            </a>
             {% endif %}
             
             {% if session.role == 'teacher' %}
@@ -295,9 +304,25 @@
             <a class="nav-link" href="{{ url_for('academic_subjects') }}">
                 <i class="fas fa-book-open me-2"></i>Subjects
             </a>
+            <!-- Publish Results Link -->
+            <a class="nav-link" href="{{ url_for('publish_results_dashboard') }}">
+                <i class="fas fa-paper-plane me-2"></i>Publish Results
+                <span class="badge bg-danger text-white ms-2" style="font-size: 0.6rem; padding: 0.2em 0.35em;">
+                    <i class="fas fa-plus me-1" style="font-size: 0.45rem;"></i>NEW
+                </span>
+            </a>
             <a class="nav-link" href="{{ url_for('add_subject') }}">
                 <i class="fas fa-plus me-2"></i>Add Subject
+
             </a>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('publish_results_dashboard') }}">
+                    <i class="fas fa-paper-plane me-2"></i>Publish Results
+                    <span class="badge bg-danger text-white ms-2" style="font-size: 0.6rem; padding: 0.2em 0.35em;">
+                        <i class="fas fa-plus me-1" style="font-size: 0.45rem;"></i>NEW
+                    </span>
+                </a>
+            </li>
             <a class="nav-link" href="{{ url_for('review_results') }}">
                 <i class="fas fa-check-circle me-2"></i>Review Results
             </a>
@@ -327,6 +352,11 @@
             </a>
             <a class="nav-link" href="{{ url_for('logout') }}">
                 <i class="fas fa-sign-out-alt me-2"></i>Logout
+            </a>
+            <a href="{{ url_for('scan_qr') }}" class="nav-link {% if request.path == '/student/scan-qr' %}active{% endif %}">
+                <i class="bi bi-qr-code-scan me-1"></i>
+                Scan Attendance
+                <span class="badge bg-danger ms-1" style="font-size: 0.6rem;">New</span>
             </a>
         </div>
     </div>
@@ -362,11 +392,26 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{{ url_for('calendar') }}" class="nav-link {% if request.path == '/calendar' %}active{% endif %}">
+                            <a href="{{ url_for('calendar') }}" class="nav-link ">
                                 <i class="bi bi-calendar-event"></i>
-                                 Calendar
+                                Calendar
                             </a>
-                        </li>
+                            
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('admin_results') }}">
+                                    <i class="fas fa-poll me-2"></i>Manage Results
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('admin_activity_log') }}">
+                                    <i class="fas fa-clipboard-list me-2"></i>Activity Log
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('admin_notifications') }}">
+                                    <i class="fas fa-bell me-2"></i>Notifications
+                                </a>
+                            </li>
                         {% endif %}
                         
                         {% if session.role == 'teacher' %}
@@ -404,6 +449,15 @@
                                 <i class="fas fa-plus me-2"></i>Add Subject
                             </a>
                         </li>
+                        <!-- Publish Results Link - ADDED TO DESKTOP SIDEBAR -->
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('publish_results_dashboard') }}">
+                                <i class="fas fa-paper-plane me-2"></i>Publish Results
+                                <span class="badge bg-danger text-white ms-2" style="font-size: 0.6rem; padding: 0.2em 0.35em;">
+                                    <i class="fas fa-plus me-1" style="font-size: 0.45rem;"></i>NEW
+                                </span>
+                            </a>
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('review_results') }}">
                                 <i class="fas fa-check-circle me-2"></i>Review Results
@@ -438,6 +492,13 @@
                                 <i class="bi bi-calendar-event"></i>
                                 Calendar
                             </a>
+                        </li>
+                        <li class="nav-item">
+                                <a href="{{ url_for('scan_qr') }}" class="nav-link {% if request.path == '/student/scan-qr' %}active{% endif %}">
+                                    <i class="bi bi-qr-code-scan me-1"></i>
+                                    Scan Attendance
+                                    <span class="badge bg-danger ms-1" style="font-size: 0.6rem;">New</span>
+                                </a>
                         </li>
                         {% endif %}
                     </ul>
