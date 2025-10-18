@@ -1,0 +1,480 @@
+{% extends "base.html" %}
+
+{% block title %}Messages - Student Portal{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 text-gradient-primary mb-2">Messages</h1>
+            <p class="text-muted mb-0">Communicate with students and staff</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if session.role != 'admin' %}
+            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newChatModal">
+                <i class="fas fa-plus me-2"></i>New Chat
+            </button>
+            {% endif %}
+            {% if session.role in ['admin', 'teacher', 'academic'] %}
+            <a href="{{ url_for('create_group_chat') }}" class="btn btn-success btn-sm">
+                <i class="fas fa-users me-2"></i>Create Group
+            </a>
+            {% endif %}
+            <button class="btn btn-outline-secondary btn-sm" onclick="toggleSearch()">
+                <i class="fas fa-search me-2"></i>Search
+            </button>
+        </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="card border-0 shadow-sm mb-4 search-container" style="display: none;">
+        <div class="card-body">
+            <div class="input-group">
+                <input type="text" id="searchInput" class="form-control" placeholder="Search messages...">
+                <button class="btn btn-primary" onclick="searchMessages()">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Chat Rooms List -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-comments me-2"></i>Conversations
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if room_data %}
+                    <div class="chat-rooms-list">
+                        {% for room_info in room_data %}
+                        <div class="chat-room-item {% if loop.first %}active{% endif %}" 
+                             onclick="openChatRoom({{ room_info.room.id }})"
+                             data-room-id="{{ room_info.room.id }}">
+                            <div class="d-flex align-items-center p-3 border-bottom">
+                                <div class="room-avatar me-3">
+                                    {% if room_info.room.room_type == 'private' and room_info.other_user %}
+                                    <div class="avatar-sm bg-primary text-white">
+                                        {{ room_info.other_user.username[0]|upper }}
+                                    </div>
+                                    {% else %}
+                                    <div class="avatar-sm bg-success text-white">
+                                        <i class="fas fa-users"></i>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <h6 class="mb-1">
+                                            {% if room_info.room.room_type == 'private' and room_info.other_user %}
+                                                {{ room_info.other_user.username }}
+                                            {% else %}
+                                                {{ room_info.room.name or 'Group Chat' }}
+                                            {% endif %}
+                                        </h6>
+                                        {% if room_info.last_message %}
+                                        <small class="text-muted">
+                                            {{ room_info.last_message.sent_at.strftime('%H:%M') }}
+                                        </small>
+                                        {% endif %}
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <p class="text-muted small mb-0 text-truncate me-2">
+                                            {% if room_info.last_message %}
+                                                {% if room_info.last_message.sender_id == session.user_id %}
+                                                    You: {{ room_info.last_message.message_text|truncate(30) }}
+                                                {% else %}
+                                                    {{ room_info.last_message.message_text|truncate(30) }}
+                                                {% endif %}
+                                            {% else %}
+                                                No messages yet
+                                            {% endif %}
+                                        </p>
+                                        {% if room_info.unread_count > 0 %}
+                                        <span class="badge bg-danger rounded-pill">{{ room_info.unread_count }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <div class="empty-state">
+                            <i class="fas fa-comments fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">No Conversations</h5>
+                            <p class="text-muted mb-3">Start a new conversation to begin messaging</p>
+                            {% if session.role != 'admin' %}
+                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newChatModal">
+                                Start Chat
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Online Users -->
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-secondary text-white py-3">
+                    <h6 class="mb-0">
+                        <i class="fas fa-circle text-success me-2"></i>Online Now
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div id="onlineUsersList" class="online-users">
+                        <!-- Online users will be populated via SocketIO -->
+                        <div class="text-center text-muted">
+                            <small>Loading online users...</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body p-0">
+                    <div id="chatArea" class="chat-area">
+                        <div class="chat-welcome text-center py-5">
+                            <i class="fas fa-comments fa-4x text-muted mb-3"></i>
+                            <h4 class="text-muted">Welcome to Messages</h4>
+                            <p class="text-muted">Select a conversation to start messaging</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Chat Modal -->
+<div class="modal fade" id="newChatModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus me-2"></i>Start New Chat
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Select User</label>
+                    <select id="userSelect" class="form-select">
+                        <option value="">Choose a user...</option>
+                    </select>
+                </div>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    You can start private conversations with other students and staff members.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="startPrivateChat()">Start Chat</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search Results Modal -->
+<div class="modal fade" id="searchResultsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-search me-2"></i>Search Results
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="searchResults" class="search-results">
+                    <!-- Search results will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+    let socket = null;
+    let currentRoomId = null;
+
+    // Initialize SocketIO connection
+    function initializeSocket() {
+        socket = io();
+        
+        socket.on('connect', function() {
+            console.log('Connected to server');
+        });
+        
+        socket.on('new_message', function(data) {
+            handleNewMessage(data);
+        });
+        
+        socket.on('user_online', function(data) {
+            updateUserStatus(data.user_id, true);
+        });
+        
+        socket.on('user_offline', function(data) {
+            updateUserStatus(data.user_id, false);
+        });
+        
+        socket.on('message_edited', function(data) {
+            updateMessage(data.message_id, data.new_text, data.edited_at);
+        });
+        
+        socket.on('message_deleted', function(data) {
+            removeMessage(data.message_id);
+        });
+        
+        socket.on('user_typing', function(data) {
+            showTypingIndicator(data.user_id, data.username);
+        });
+        
+        socket.on('user_stopped_typing', function(data) {
+            hideTypingIndicator(data.user_id);
+        });
+    }
+
+    // Load users for new chat
+    function loadUsersForChat() {
+        fetch('/messages/users')
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById('userSelect');
+                select.innerHTML = '<option value="">Choose a user...</option>';
+                
+                data.users.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+                    option.textContent = `${user.name} (${user.role})`;
+                    select.appendChild(option);
+                });
+            });
+    }
+
+    // Start private chat
+    function startPrivateChat() {
+        const userId = document.getElementById('userSelect').value;
+        if (!userId) {
+            alert('Please select a user');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('user_id', userId);
+        
+        fetch('/messages/create-private', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (response.redirected) {
+                window.location.href = response.url;
+            }
+        })
+        .catch(error => {
+            console.error('Error starting chat:', error);
+        });
+    }
+
+    // Open chat room
+    function openChatRoom(roomId) {
+        window.location.href = `/messages/room/${roomId}`;
+    }
+
+    // Toggle search bar
+    function toggleSearch() {
+        const searchContainer = document.querySelector('.search-container');
+        searchContainer.style.display = searchContainer.style.display === 'none' ? 'block' : 'none';
+    }
+
+    // Search messages
+    function searchMessages() {
+        const query = document.getElementById('searchInput').value;
+        if (!query.trim()) return;
+        
+        fetch(`/messages/search?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                displaySearchResults(data.results);
+            });
+    }
+
+    // Display search results
+    function displaySearchResults(results) {
+        const container = document.getElementById('searchResults');
+        
+        if (results.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center">No results found</p>';
+        } else {
+            container.innerHTML = results.map(result => `
+                <div class="search-result-item p-3 border-bottom">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <h6 class="mb-1">${result.room_name}</h6>
+                        <small class="text-muted">${result.sent_at}</small>
+                    </div>
+                    <p class="mb-1"><strong>${result.sender}:</strong> ${result.text}</p>
+                    <button class="btn btn-sm btn-outline-primary" onclick="openChatRoom(${result.room_id})">
+                        Go to Conversation
+                    </button>
+                </div>
+            `).join('');
+        }
+        
+        new bootstrap.Modal(document.getElementById('searchResultsModal')).show();
+    }
+
+    // Update user status
+    function updateUserStatus(userId, isOnline) {
+        // This would update the online users list
+        console.log(`User ${userId} is ${isOnline ? 'online' : 'offline'}`);
+    }
+
+    // Handle new message
+    function handleNewMessage(data) {
+        // Update the chat room if open
+        if (currentRoomId === data.room_id) {
+            // Add message to chat
+            addMessageToChat(data);
+        } else {
+            // Update room list with new message indicator
+            updateRoomIndicator(data.room_id);
+        }
+    }
+
+    // Initialize when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeSocket();
+        loadUsersForChat();
+        
+        // Add event listener for Enter key in search
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchMessages();
+            }
+        });
+    });
+</script>
+
+<style>
+.chat-room-item {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.chat-room-item:hover {
+    background-color: #f8f9fa;
+}
+
+.chat-room-item.active {
+    background-color: #e3f2fd;
+    border-left: 3px solid #007bff;
+}
+
+.avatar-sm {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+}
+
+.chat-area {
+    height: 600px;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-welcome {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.online-users {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.online-user-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.online-user-item:last-child {
+    border-bottom: none;
+}
+
+.user-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+}
+
+.user-status.online {
+    background-color: #28a745;
+}
+
+.user-status.offline {
+    background-color: #6c757d;
+}
+
+.search-result-item:hover {
+    background-color: #f8f9fa;
+}
+
+.empty-state {
+    padding: 2rem 1rem;
+}
+
+.text-gradient-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Scrollbar styling */
+.chat-rooms-list {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.chat-rooms-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-rooms-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.chat-rooms-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.chat-rooms-list::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+</style>
+{% endblock %}

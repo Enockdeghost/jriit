@@ -1,0 +1,425 @@
+{% extends "meetings/base_meeting.html" %}
+
+{% block meeting_title %}Join Meeting{% endblock %}
+
+{% block meeting_content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6 col-md-8">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-primary text-white text-center py-4">
+                    <div class="avatar-circle mb-3 mx-auto">
+                        <i class="fas fa-video fa-2x text-white"></i>
+                    </div>
+                    <h3 class="mb-1">{{ meeting.title }}</h3>
+                    <p class="mb-0 opacity-75">
+                        {% if meeting.teacher %}
+                            Hosted by {{ meeting.teacher.full_name }}
+                        {% else %}
+                            Hosted by {{ meeting.host.username }}
+                        {% endif %}
+                    </p>
+                </div>
+                
+                <div class="card-body p-4">
+                    <!-- Meeting Status -->
+                    <div class="alert alert-info d-flex align-items-center" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <div>
+                            {% if meeting.status == 'scheduled' %}
+                                <strong>Scheduled Meeting</strong><br>
+                                Starts at {{ meeting.scheduled_start.strftime('%B %d, %Y at %H:%M') if meeting.scheduled_start else 'TBA' }}
+                            {% elif meeting.status == 'active' %}
+                                <strong>Meeting in Progress</strong><br>
+                                Join now to participate
+                            {% else %}
+                                <strong>Meeting {{ meeting.status|title }}</strong>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Participant Status -->
+                    <div class="participant-status mb-4 text-center">
+                        {% if participant.status == 'waiting' %}
+                        <div class="alert alert-warning">
+                            <div class="d-flex align-items-center">
+                                <div class="spinner-border spinner-border-sm me-3" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <div>
+                                    <strong>Waiting for host approval</strong>
+                                    <p class="mb-0 small">The host will admit you to the meeting shortly.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Waiting Room Info -->
+                        <div class="waiting-room-info mt-3 p-3 bg-light rounded">
+                            <h6 class="mb-2"><i class="fas fa-clock me-2"></i>Waiting Room</h6>
+                            <p class="small text-muted mb-2">
+                                You're in the waiting room. The host will be notified of your arrival.
+                            </p>
+                            <div class="waiting-timer">
+                                <small class="text-muted">
+                                    <i class="fas fa-stopwatch me-1"></i>
+                                    Waiting time: <span id="waitingTimer">00:00</span>
+                                </small>
+                            </div>
+                        </div>
+                        
+                        {% elif participant.status == 'admitted' %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>Ready to join</strong>
+                            <p class="mb-0 small">You can now enter the meeting room.</p>
+                        </div>
+                        {% elif participant.status == 'rejected' %}
+                        <div class="alert alert-danger">
+                            <i class="fas fa-times-circle me-2"></i>
+                            <strong>Entry denied</strong>
+                            <p class="mb-0 small">The host has denied your request to join this meeting.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- User Info -->
+                    <div class="user-info-card mb-4">
+                        <div class="d-flex align-items-center p-3 bg-light rounded">
+                            <div class="avatar-sm me-3">
+                                <i class="fas fa-user-circle fa-2x text-muted"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1" id="userDisplayName">
+                                    {% if session.get('student_id') and student %}
+                                        {{ student.full_name }}
+                                    {% elif session.get('teacher_id') and teacher %}
+                                        {{ teacher.full_name }}
+                                    {% elif session.get('academic_id') and academic %}
+                                        {{ academic.full_name }}
+                                    {% else %}
+                                        {{ session['username'] }}
+                                    {% endif %}
+                                </h6>
+                                <small class="text-muted">
+                                    {{ session['role']|title }} • 
+                                    <span id="deviceInfo">Web Browser</span>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Audio/Video Preview -->
+                    <div class="preview-section mb-4">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <div class="preview-card text-center p-3 border rounded">
+                                    <div class="preview-video mb-2 bg-dark rounded" style="height: 120px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-video fa-2x text-white" id="videoIcon"></i>
+                                        <video id="videoPreview" style="display: none; width: 100%; height: 100%; object-fit: cover;"></video>
+                                    </div>
+                                    <div class="form-check form-switch d-inline-block">
+                                        <input class="form-check-input" type="checkbox" id="videoToggle" checked>
+                                        <label class="form-check-label small" for="videoToggle">Video</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="preview-card text-center p-3 border rounded">
+                                    <div class="preview-audio mb-2 bg-dark rounded" style="height: 120px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-microphone fa-2x text-white"></i>
+                                    </div>
+                                    <div class="form-check form-switch d-inline-block">
+                                        <input class="form-check-input" type="checkbox" id="audioToggle" checked>
+                                        <label class="form-check-label small" for="audioToggle">Audio</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Join Button -->
+                    <div class="join-section">
+                        {% if participant.status == 'admitted' or meeting.host_id == session['user_id'] %}
+                        <a href="{{ url_for('meeting_room', meeting_id=meeting.meeting_id) }}" 
+                           class="btn btn-success btn-lg w-100 py-3" id="joinButton">
+                            <i class="fas fa-play-circle me-2"></i>
+                            Join Meeting
+                        </a>
+                        {% elif participant.status == 'waiting' %}
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-warning btn-lg w-100 py-3" disabled id="waitingButton">
+                                <i class="fas fa-clock me-2"></i>
+                                Waiting for Host Approval
+                            </button>
+                            <a href="{{ url_for('meetings_dashboard') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Leave Waiting Room
+                            </a>
+                        </div>
+                        {% elif participant.status == 'rejected' %}
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-danger btn-lg w-100 py-3" disabled>
+                                <i class="fas fa-ban me-2"></i>
+                                Entry Denied
+                            </button>
+                            <a href="{{ url_for('meetings_dashboard') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Return to Dashboard
+                            </a>
+                        </div>
+                        {% else %}
+                        <button class="btn btn-secondary btn-lg w-100 py-3" disabled>
+                            <i class="fas fa-ban me-2"></i>
+                            Not Approved
+                        </button>
+                        {% endif %}
+                    </div>
+
+                    <!-- Additional Info -->
+                    <div class="meeting-info mt-4">
+                        <div class="row text-center small text-muted">
+                            <div class="col-4">
+                                <i class="fas fa-users me-1"></i>
+                                <span id="participantCount">
+                                    {{ meeting.participants|selectattr('status', 'equalto', 'joined')|list|length }}
+                                </span> in meeting
+                            </div>
+                            <div class="col-4">
+                                <i class="fas fa-clock me-1"></i>
+                                {{ meeting.duration }} min
+                            </div>
+                            <div class="col-4">
+                                <i class="fas fa-shield-alt me-1"></i>
+                                {% if meeting.encryption_enabled %}Encrypted{% else %}Standard{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Meeting Details -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h6 class="card-title">Meeting Details</h6>
+                    <dl class="row small mb-0">
+                        <dt class="col-sm-4">Meeting ID:</dt>
+                        <dd class="col-sm-8">{{ meeting.meeting_id }}</dd>
+                        
+                        <dt class="col-sm-4">Host:</dt>
+                        <dd class="col-sm-8">
+                            {% if meeting.teacher %}
+                                {{ meeting.teacher.full_name }}
+                            {% else %}
+                                {{ meeting.host.username }}
+                            {% endif %}
+                        </dd>
+                        
+                        {% if meeting.description %}
+                        <dt class="col-sm-4">Description:</dt>
+                        <dd class="col-sm-8">{{ meeting.description }}</dd>
+                        {% endif %}
+                        
+                        <dt class="col-sm-4">Settings:</dt>
+                        <dd class="col-sm-8">
+                            {% if meeting.waiting_room_enabled %}Waiting Room • {% endif %}
+                            {% if meeting.allow_recording %}Recording • {% endif %}
+                            {% if meeting.allow_screen_share %}Screen Share{% endif %}
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const MEETING_ID = '{{ meeting.meeting_id }}';
+const PARTICIPANT_ID = {{ participant.id }};
+const USER_ID = {{ session['user_id'] }};
+const IS_HOST = {{ 'true' if meeting.host_id == session['user_id'] else 'false' }};
+
+let waitingStartTime = new Date();
+let timerInterval = null;
+let socket = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeMediaPreview();
+    initializeSocketConnection();
+    startWaitingTimer();
+    
+    // Check participant status periodically
+    if ('{{ participant.status }}' === 'waiting') {
+        checkParticipantStatus();
+    }
+});
+
+function initializeMediaPreview() {
+    // Try to access camera for preview
+    if (document.getElementById('videoToggle').checked) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(function(stream) {
+                const videoPreview = document.getElementById('videoPreview');
+                const videoIcon = document.getElementById('videoIcon');
+                
+                videoPreview.srcObject = stream;
+                videoPreview.style.display = 'block';
+                videoIcon.style.display = 'none';
+                
+                // Store stream for cleanup
+                window.previewStream = stream;
+            })
+            .catch(function(error) {
+                console.log('Camera access denied for preview');
+                document.getElementById('videoToggle').disabled = true;
+            });
+    }
+
+    // Setup toggle handlers
+    document.getElementById('videoToggle').addEventListener('change', function() {
+        if (!this.checked && window.previewStream) {
+            window.previewStream.getVideoTracks()[0].stop();
+            document.getElementById('videoPreview').style.display = 'none';
+            document.getElementById('videoIcon').style.display = 'block';
+        }
+    });
+}
+
+function initializeSocketConnection() {
+    socket = io();
+    
+    // Listen for approval/rejection
+    socket.on('participant_approved', function(data) {
+        if (data.participant_id === PARTICIPANT_ID) {
+            showApprovalNotification();
+            // Redirect to meeting room after short delay
+            setTimeout(() => {
+                window.location.href = "{{ url_for('meeting_room', meeting_id=meeting.meeting_id) }}";
+            }, 2000);
+        }
+    });
+    
+    socket.on('participant_rejected', function(data) {
+        showRejectionNotification(data.reason);
+        // Update UI to show rejection
+        setTimeout(() => {
+            location.reload();
+        }, 3000);
+    });
+    
+    // Notify host that participant is waiting
+    if ('{{ participant.status }}' === 'waiting') {
+        socket.emit('participant_waiting', {
+            meeting_id: MEETING_ID,
+            user_id: USER_ID,
+            participant_id: PARTICIPANT_ID
+        });
+    }
+}
+
+function startWaitingTimer() {
+    waitingStartTime = new Date();
+    timerInterval = setInterval(updateWaitingTimer, 1000);
+}
+
+function updateWaitingTimer() {
+    const now = new Date();
+    const diff = Math.floor((now - waitingStartTime) / 1000);
+    const minutes = Math.floor(diff / 60);
+    const seconds = diff % 60;
+    
+    document.getElementById('waitingTimer').textContent = 
+        `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function checkParticipantStatus() {
+    // Check status every 5 seconds
+    setInterval(() => {
+        fetch(`/api/meetings/${MEETING_ID}/participant/${PARTICIPANT_ID}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.participant.status !== 'waiting') {
+                    location.reload();
+                }
+            })
+            .catch(error => console.error('Error checking status:', error));
+    }, 5000);
+}
+
+function showApprovalNotification() {
+    const alertDiv = document.querySelector('.participant-status');
+    alertDiv.innerHTML = `
+        <div class="alert alert-success">
+            <i class="fas fa-check-circle me-2"></i>
+            <strong>Approved!</strong>
+            <p class="mb-0 small">Redirecting to meeting room...</p>
+        </div>
+    `;
+}
+
+function showRejectionNotification(reason) {
+    const alertDiv = document.querySelector('.participant-status');
+    alertDiv.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="fas fa-times-circle me-2"></i>
+            <strong>Entry Denied</strong>
+            <p class="mb-0 small">${reason}</p>
+        </div>
+    `;
+}
+
+// Cleanup
+window.addEventListener('beforeunload', function() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+    }
+    if (window.previewStream) {
+        window.previewStream.getTracks().forEach(track => track.stop());
+    }
+    if (socket) {
+        socket.disconnect();
+    }
+});
+</script>
+
+<style>
+.avatar-circle {
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.avatar-sm {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.preview-video, .preview-audio {
+    transition: all 0.3s ease;
+}
+
+.preview-video video {
+    border-radius: 4px;
+}
+
+.form-check-input:checked {
+    background-color: #198754;
+    border-color: #198754;
+}
+
+.waiting-room-info {
+    border-left: 4px solid #ffc107;
+}
+
+.spinner-border-sm {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+</style>
+{% endblock %}

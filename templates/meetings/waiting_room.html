@@ -1,0 +1,130 @@
+{% extends "meetings/base_meeting.html" %}
+
+{% block meeting_title %}Waiting Room - {{ meeting.title }}{% endblock %}
+
+{% block meeting_content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0">
+                        <i class="fas fa-users me-2"></i>
+                        Waiting Room - {{ meeting.title }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div id="waitingParticipantsList">
+                        <!-- Participants will be loaded here -->
+                    </div>
+                    
+                    <div class="text-center py-4" id="emptyWaitingRoom" style="display: none;">
+                        <i class="fas fa-users-slash fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No participants waiting</h5>
+                        <p class="text-muted">Participants will appear here when they join the waiting room.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const MEETING_ID = '{{ meeting.meeting_id }}';
+
+// Load waiting participants
+function loadWaitingParticipants() {
+    fetch(`/api/meetings/${MEETING_ID}/waiting-room`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateWaitingRoomUI(data.waiting_participants);
+            }
+        });
+}
+
+function updateWaitingRoomUI(participants) {
+    const container = document.getElementById('waitingParticipantsList');
+    const emptyMessage = document.getElementById('emptyWaitingRoom');
+    
+    if (participants.length === 0) {
+        container.innerHTML = '';
+        emptyMessage.style.display = 'block';
+        return;
+    }
+    
+    emptyMessage.style.display = 'none';
+    
+    let html = '';
+    participants.forEach(participant => {
+        html += `
+            <div class="card mb-3" id="participant-${participant.id}">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h6 class="mb-1">${participant.full_name}</h6>
+                            <small class="text-muted">
+                                ${participant.role} • 
+                                Joined ${new Date(participant.created_at).toLocaleTimeString()}
+                            </small>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <div class="btn-group">
+                                <button class="btn btn-success btn-sm" onclick="approveParticipant(${participant.id})">
+                                    <i class="fas fa-check me-1"></i>Admit
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="rejectParticipant(${participant.id})">
+                                    <i class="fas fa-times me-1"></i>Deny
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function approveParticipant(participantId) {
+    fetch(`/api/meetings/${MEETING_ID}/approve-participant/${participantId}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById(`participant-${participantId}`).remove();
+            showToast('Participant admitted successfully', 'success');
+        } else {
+            showToast('Error admitting participant', 'error');
+        }
+    });
+}
+
+function rejectParticipant(participantId) {
+    if (confirm('Are you sure you want to deny this participant?')) {
+        fetch(`/api/meetings/${MEETING_ID}/reject-participant/${participantId}`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById(`participant-${participantId}`).remove();
+                showToast('Participant denied', 'success');
+            } else {
+                showToast('Error denying participant', 'error');
+            }
+        });
+    }
+}
+
+// Check for new participants every 3 seconds
+setInterval(loadWaitingParticipants, 3000);
+
+// Initial load
+loadWaitingParticipants();
+</script>
+{% endblock %}

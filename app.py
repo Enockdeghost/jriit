@@ -35,14 +35,30 @@ app.config['ANNOUNCEMENT_UPLOAD_FOLDER'] = 'static/uploads/announcements'
 os.makedirs(app.config['ANNOUNCEMENT_UPLOAD_FOLDER'], exist_ok=True)
 app.config['UPLOAD_FOLDER'] = 'static/uploads/profiles'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  
-app.config['QR_EXPIRY_MINUTES'] = 15  # Default QR expiry
-app.config['ATTENDANCE_GRACE_PERIOD'] = 10  # Grace period in minutes
-app.config['MAX_DISTANCE_METERS'] = 100  # Default geo-fence radius
-app.config['ENABLE_GEO_FENCING'] = True  # Enable/disable geo-fencing
-app.config['ENABLE_DEVICE_TRACKING'] = True  # disable device tracking
+app.config['QR_EXPIRY_MINUTES'] = 15  
+app.config['ATTENDANCE_GRACE_PERIOD'] = 10  
+app.config['MAX_DISTANCE_METERS'] = 100  
+app.config['ENABLE_GEO_FENCING'] = True  
+app.config['ENABLE_DEVICE_TRACKING'] = True  
 app.config['QR_SECRET_LENGTH'] = 32  
 app.config['BACKUP_PIN_LENGTH'] = 6 
 app.config['RATE_LIMIT_PER_MINUTE'] = 60
+app.config['MESSAGE_UPLOAD_FOLDER'] = 'static/uploads/messages'
+os.makedirs(app.config['MESSAGE_UPLOAD_FOLDER'], exist_ok=True)
+app.config['ALLOWED_MESSAGE_FILES'] = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'zip'}
+app.config['JWT_SECRET_KEY'] = os.urandom(32)
+app.config['RECORDING_FOLDER'] = 'static/recordings'
+os.makedirs(app.config['RECORDING_FOLDER'], exist_ok=True)
+app.config['MAX_MEETING_DURATION'] = 480  # 8 hours in minutes
+app.config['MAX_PARTICIPANTS'] = 100
+app.config['RECORDING_FOLDER'] = 'static/recordings'
+os.makedirs(app.config['RECORDING_FOLDER'], exist_ok=True)
+app.config['MAX_MEETING_DURATION'] = 480  # 8 hours in minutes
+app.config['MAX_PARTICIPANTS'] = 100
+
+def allowed_message_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_MESSAGE_FILES']
+
 
 # Flask-Mail configuration (update these with your SMTP server details)
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
@@ -487,6 +503,688 @@ class ProctoringEvent(db.Model):
     
     # Relationships
     attempt = db.relationship('ExamAttempt', backref='proctoring_events')
+
+class ChatRoom(db.Model):
+    """Represents a chat room - can be private (1-to-1) or group chat"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=True)  # For group chats
+    room_type = db.Column(db.String(20), nullable=False)  # 'private', 'group', 'class', 'department'
+    
+    # Group chat details
+    description = db.Column(db.Text, nullable=True)
+    course = db.Column(db.String(50), nullable=True)  # For class channels
+    semester = db.Column(db.Integer, nullable=True)
+    department = db.Column(db.String(50), nullable=True)
+    
+    # Settings
+    is_active = db.Column(db.Boolean, default=True)
+    allow_file_sharing = db.Column(db.Boolean, default=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Pinned messages
+    pinned_message_id = db.Column(db.Integer, nullable=True)
+    
+    creator = db.relationship('User', backref='created_rooms')
+
+
+class ChatMember(db.Model):
+    """Tracks members in a chat room"""
+    id = db.Column(db.Integer, primary_key=True)
+    room_id = db.Column(db.Integer, db.ForeignKey('chat_room.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Role in chat
+    role = db.Column(db.String(20), default='member')  # 'admin', 'moderator', 'member'
+    
+    # Status
+    is_active = db.Column(db.Boolean, default=True)
+    joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+    left_at = db.Column(db.DateTime, nullable=True)
+    last_read_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Notifications
+    muted = db.Column(db.Boolean, default=False)
+    
+    room = db.relationship('ChatRoom', backref='members')
+    user = db.relationship('User', backref='chat_memberships')
+
+
+class ChatMessage(db.Model):
+    """Individual chat messages"""
+    id = db.Column(db.Integer, primary_key=True)
+    room_id = db.Column(db.Integer, db.ForeignKey('chat_room.id'), nullable=False)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Message content
+    message_text = db.Column(db.Text, nullable=True)
+    message_type = db.Column(db.String(20), default='text')  # 'text', 'file', 'image', 'system'
+    
+    # File attachments
+    file_path = db.Column(db.String(500), nullable=True)
+    file_name = db.Column(db.String(200), nullable=True)
+    file_type = db.Column(db.String(50), nullable=True)
+    file_size = db.Column(db.Integer, nullable=True)
+    
+    # Message status
+    is_edited = db.Column(db.Boolean, default=False)
+    edited_at = db.Column(db.DateTime, nullable=True)
+    is_deleted = db.Column(db.Boolean, default=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+    is_pinned = db.Column(db.Boolean, default=False)
+    
+    # Mentions
+    mentioned_users = db.Column(db.Text, nullable=True)  # JSON array of user IDs
+    
+    # Reply to message
+    reply_to_id = db.Column(db.Integer, db.ForeignKey('chat_message.id'), nullable=True)
+    
+    # Timestamps
+    sent_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    room = db.relationship('ChatRoom', backref='messages')
+    sender = db.relationship('User', backref='sent_messages')
+    reply_to = db.relationship('ChatMessage', remote_side=[id], backref='replies')
+
+
+class MessageDelivery(db.Model):
+    """Track message delivery and read status"""
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.Integer, db.ForeignKey('chat_message.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Status
+    delivered = db.Column(db.Boolean, default=False)
+    delivered_at = db.Column(db.DateTime, nullable=True)
+    read = db.Column(db.Boolean, default=False)
+    read_at = db.Column(db.DateTime, nullable=True)
+    
+    message = db.relationship('ChatMessage', backref='deliveries')
+    user = db.relationship('User', backref='message_deliveries')
+
+
+class MessageReaction(db.Model):
+    """Emoji reactions to messages"""
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.Integer, db.ForeignKey('chat_message.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    emoji = db.Column(db.String(10), nullable=False)  # '👍', '❤️', '😂', etc.
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    message = db.relationship('ChatMessage', backref='reactions')
+    user = db.relationship('User', backref='message_reactions')
+
+
+class UserStatus(db.Model):
+    """Track online/offline status of users"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
+    is_online = db.Column(db.Boolean, default=False)
+    last_seen = db.Column(db.DateTime, default=datetime.utcnow)
+    socket_id = db.Column(db.String(100), nullable=True)
+    
+    user = db.relationship('User', backref='status')
+
+
+class TypingIndicator(db.Model):
+    """Track who is typing in which room"""
+    id = db.Column(db.Integer, primary_key=True)
+    room_id = db.Column(db.Integer, db.ForeignKey('chat_room.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    started_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    room = db.relationship('ChatRoom', backref='typing_users')
+    user = db.relationship('User', backref='typing_in_rooms')
+
+
+class ChatNotification(db.Model):
+    """Notifications for chat events"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    room_id = db.Column(db.Integer, db.ForeignKey('chat_room.id'), nullable=False)
+    message_id = db.Column(db.Integer, db.ForeignKey('chat_message.id'), nullable=True)
+    
+    notification_type = db.Column(db.String(50), nullable=False)  # 'new_message', 'mention', 'reaction', 'room_invite'
+    content = db.Column(db.Text, nullable=False)
+    
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User', backref='chat_notifications')
+    room = db.relationship('ChatRoom', backref='notifications')
+    message = db.relationship('ChatMessage', backref='notifications')
+
+# ==================== VIDEO CONFERENCE MODELS ====================
+
+class Meeting(db.Model):
+    """Video conference meetings"""
+    id = db.Column(db.Integer, primary_key=True)
+    meeting_id = db.Column(db.String(50), unique=True, nullable=False)  # Public meeting ID
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    
+    # Meeting type and scheduling
+    meeting_type = db.Column(db.String(20), default='instant')  # instant, scheduled, recurring
+    scheduled_start = db.Column(db.DateTime, nullable=True)
+    scheduled_end = db.Column(db.DateTime, nullable=True)
+    actual_start = db.Column(db.DateTime, nullable=True)
+    actual_end = db.Column(db.DateTime, nullable=True)
+    duration = db.Column(db.Integer, default=60)  # Minutes
+    
+    # Host and organizer
+    host_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('teacher.id'), nullable=True)  # For teacher meetings
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=True)  # For class meetings
+    
+    # Security and access
+    password = db.Column(db.String(100), nullable=True)
+    waiting_room_enabled = db.Column(db.Boolean, default=True)
+    is_locked = db.Column(db.Boolean, default=False)
+    encryption_enabled = db.Column(db.Boolean, default=True)
+    require_approval = db.Column(db.Boolean, default=True)
+    
+    # Meeting settings
+    max_participants = db.Column(db.Integer, default=100)
+    allow_recording = db.Column(db.Boolean, default=True)
+    allow_screen_share = db.Column(db.Boolean, default=True)
+    allow_chat = db.Column(db.Boolean, default=True)
+    allow_reactions = db.Column(db.Boolean, default=True)
+    mute_on_entry = db.Column(db.Boolean, default=False)
+    video_on_entry = db.Column(db.Boolean, default=True)
+    auto_record = db.Column(db.Boolean, default=False)
+    
+    # Video/audio settings
+    enable_hd = db.Column(db.Boolean, default=True)
+    enable_background_blur = db.Column(db.Boolean, default=True)
+    enable_noise_suppression = db.Column(db.Boolean, default=True)
+    
+    # Recording
+    recording_path = db.Column(db.String(500), nullable=True)
+    cloud_recording = db.Column(db.Boolean, default=False)
+    
+    # Status
+    status = db.Column(db.String(20), default='scheduled')  # scheduled, active, ended, cancelled
+    
+    # Targeting (for class meetings)
+    target_type = db.Column(db.String(20), nullable=True)  # all, course, department, semester, custom
+    target_value = db.Column(db.String(50), nullable=True)
+    specific_participants = db.Column(db.Text, nullable=True)  # JSON array of user IDs
+    invited_users = db.Column(db.Text, nullable=True)  # JSON array
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    host = db.relationship('User', backref='hosted_meetings', foreign_keys=[host_id])
+    teacher = db.relationship('Teacher', backref='meetings')
+    subject = db.relationship('Subject', backref='meetings')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'meeting_id': self.meeting_id,
+            'title': self.title,
+            'description': self.description,
+            'meeting_type': self.meeting_type,
+            'scheduled_start': self.scheduled_start.isoformat() if self.scheduled_start else None,
+            'scheduled_end': self.scheduled_end.isoformat() if self.scheduled_end else None,
+            'actual_start': self.actual_start.isoformat() if self.actual_start else None,
+            'actual_end': self.actual_end.isoformat() if self.actual_end else None,
+            'duration': self.duration,
+            'host_id': self.host_id,
+            'teacher_id': self.teacher_id,
+            'subject_id': self.subject_id,
+            'password': self.password,
+            'waiting_room_enabled': self.waiting_room_enabled,
+            'is_locked': self.is_locked,
+            'encryption_enabled': self.encryption_enabled,
+            'require_approval': self.require_approval,
+            'max_participants': self.max_participants,
+            'allow_recording': self.allow_recording,
+            'allow_screen_share': self.allow_screen_share,
+            'allow_chat': self.allow_chat,
+            'allow_reactions': self.allow_reactions,
+            'mute_on_entry': self.mute_on_entry,
+            'video_on_entry': self.video_on_entry,
+            'auto_record': self.auto_record,
+            'enable_hd': self.enable_hd,
+            'enable_background_blur': self.enable_background_blur,
+            'enable_noise_suppression': self.enable_noise_suppression,
+            'recording_path': self.recording_path,
+            'cloud_recording': self.cloud_recording,
+            'status': self.status,
+            'target_type': self.target_type,
+            'target_value': self.target_value,
+            'specific_participants': json.loads(self.specific_participants) if self.specific_participants else [],
+            'invited_users': json.loads(self.invited_users) if self.invited_users else [],
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
+
+class MeetingParticipant(db.Model):
+    """Track meeting participants"""
+    id = db.Column(db.Integer, primary_key=True)
+    meeting_id = db.Column(db.Integer, db.ForeignKey('meeting.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=True)
+    
+    # Role and permissions
+    role = db.Column(db.String(20), default='participant')  # host, co_host, presenter, participant
+    can_share_screen = db.Column(db.Boolean, default=True)
+    can_unmute_self = db.Column(db.Boolean, default=True)
+    can_enable_video = db.Column(db.Boolean, default=True)
+    can_chat = db.Column(db.Boolean, default=True)
+    
+    # Status
+    status = db.Column(db.String(20), default='invited')  # invited, waiting, admitted, joined, left, removed
+    in_waiting_room = db.Column(db.Boolean, default=False)
+    
+    # Activity tracking
+    joined_at = db.Column(db.DateTime, nullable=True)
+    left_at = db.Column(db.DateTime, nullable=True)
+    total_duration = db.Column(db.Integer, default=0)  # seconds
+    
+    # Device and connection info
+    device_info = db.Column(db.Text, nullable=True)  # JSON
+    ip_address = db.Column(db.String(45), nullable=True)
+    connection_quality = db.Column(db.String(20), default='good')  # excellent, good, poor
+    
+    # Media state
+    audio_enabled = db.Column(db.Boolean, default=True)
+    video_enabled = db.Column(db.Boolean, default=True)
+    screen_sharing = db.Column(db.Boolean, default=False)
+    
+    # Interactions
+    hand_raised = db.Column(db.Boolean, default=False)
+    hand_raised_at = db.Column(db.DateTime, nullable=True)
+    
+    # Breakout rooms
+    breakout_room_id = db.Column(db.Integer, nullable=True)
+    
+    # WebRTC
+    socket_id = db.Column(db.String(100), nullable=True)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    meeting = db.relationship('Meeting', backref='participants')
+    user = db.relationship('User', backref='meeting_participations')
+    student = db.relationship('Student', backref='meeting_participations')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'meeting_id': self.meeting_id,
+            'user_id': self.user_id,
+            'student_id': self.student_id,
+            'role': self.role,
+            'can_share_screen': self.can_share_screen,
+            'can_unmute_self': self.can_unmute_self,
+            'can_enable_video': self.can_enable_video,
+            'can_chat': self.can_chat,
+            'status': self.status,
+            'in_waiting_room': self.in_waiting_room,
+            'joined_at': self.joined_at.isoformat() if self.joined_at else None,
+            'left_at': self.left_at.isoformat() if self.left_at else None,
+            'total_duration': self.total_duration,
+            'device_info': json.loads(self.device_info) if self.device_info else None,
+            'ip_address': self.ip_address,
+            'connection_quality': self.connection_quality,
+            'audio_enabled': self.audio_enabled,
+            'video_enabled': self.video_enabled,
+            'screen_sharing': self.screen_sharing,
+            'hand_raised': self.hand_raised,
+            'hand_raised_at': self.hand_raised_at.isoformat() if self.hand_raised_at else None,
+            'breakout_room_id': self.breakout_room_id,
+            'socket_id': self.socket_id
+        }
+
+class MeetingRecording(db.Model):
+    """Meeting recordings"""
+    id = db.Column(db.Integer, primary_key=True)
+    meeting_id = db.Column(db.Integer, db.ForeignKey('meeting.id'), nullable=False)
+    
+    # Recording details
+    recording_name = db.Column(db.String(200), nullable=False)
+    file_path = db.Column(db.String(500), nullable=False)
+    file_size = db.Column(db.BigInteger, nullable=True)  # bytes
+    duration = db.Column(db.Integer, nullable=True)  # seconds
+    
+    # Recording type and format
+    format = db.Column(db.String(10), default='webm')
+    recording_type = db.Column(db.String(20), default='full')  # full, audio_only, screen_only
+    storage_type = db.Column(db.String(20), default='local')  # local, cloud
+    
+    # Access control
+    cloud_url = db.Column(db.String(500), nullable=True)
+    is_public = db.Column(db.Boolean, default=False)
+    password_protected = db.Column(db.Boolean, default=False)
+    access_password = db.Column(db.String(100), nullable=True)
+    allowed_users = db.Column(db.Text, nullable=True)  # JSON array
+    
+    # Status
+    processing_status = db.Column(db.String(20), default='processing')  # processing, available, failed
+    
+    # Additional files
+    thumbnail_path = db.Column(db.String(500), nullable=True)
+    transcript_path = db.Column(db.String(500), nullable=True)
+    
+    # Creator
+    recorded_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Timestamps
+    started_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    
+    # Analytics
+    views_count = db.Column(db.Integer, default=0)
+    
+    # Relationships
+    meeting = db.relationship('Meeting', backref='recordings')
+    recorder = db.relationship('User', backref='meeting_recordings')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'meeting_id': self.meeting_id,
+            'recording_name': self.recording_name,
+            'file_path': self.file_path,
+            'file_size': self.file_size,
+            'duration': self.duration,
+            'format': self.format,
+            'recording_type': self.recording_type,
+            'storage_type': self.storage_type,
+            'cloud_url': self.cloud_url,
+            'is_public': self.is_public,
+            'password_protected': self.password_protected,
+            'processing_status': self.processing_status,
+            'thumbnail_path': self.thumbnail_path,
+            'transcript_path': self.transcript_path,
+            'recorded_by': self.recorded_by,
+            'started_at': self.started_at.isoformat(),
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'views_count': self.views_count,
+            'allowed_users': json.loads(self.allowed_users) if self.allowed_users else []
+        }
+
+class MeetingChat(db.Model):
+    """Chat messages during meetings"""
+    id = db.Column(db.Integer, primary_key=True)
+    meeting_id = db.Column(db.Integer, db.ForeignKey('meeting.id'), nullable=False)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Message content
+    message_text = db.Column(db.Text, nullable=False)
+    message_type = db.Column(db.String(20), default='public')  # public, private, system
+    
+    # Recipients for private messages
+    recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    
+    # File attachments
+    file_path = db.Column(db.String(500), nullable=True)
+    file_name = db.Column(db.String(200), nullable=True)
+    
+    # Moderation
+    is_deleted = db.Column(db.Boolean, default=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+    
+    # Timestamp
+    sent_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    meeting = db.relationship('Meeting', backref='chat_messages')
+    sender = db.relationship('User', foreign_keys=[sender_id])
+    recipient = db.relationship('User', foreign_keys=[recipient_id])
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'meeting_id': self.meeting_id,
+            'sender_id': self.sender_id,
+            'message_text': self.message_text,
+            'message_type': self.message_type,
+            'recipient_id': self.recipient_id,
+            'file_path': self.file_path,
+            'file_name': self.file_name,
+            'is_deleted': self.is_deleted,
+            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None,
+            'sent_at': self.sent_at.isoformat()
+        }
+
+class MeetingPoll(db.Model):
+    """Polls during meetings"""
+    id = db.Column(db.Integer, primary_key=True)
+    meeting_id = db.Column(db.Integer, db.ForeignKey('meeting.id'), nullable=False)
+    
+    # Poll details
+    question = db.Column(db.Text, nullable=False)
+    poll_type = db.Column(db.String(20), default='multiple_choice')  # multiple_choice, single_choice, rating
+    options = db.Column(db.Text, nullable=False)  # JSON array
+    
+    # Settings
+    allow_multiple_answers = db.Column(db.Boolean, default=False)
+    anonymous = db.Column(db.Boolean, default=False)
+    show_results_after = db.Column(db.Boolean, default=True)
+    
+    # Status
+    status = db.Column(db.String(20), default='active')  # active, closed
+    
+    # Creator
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    closed_at = db.Column(db.DateTime, nullable=True)
+    
+    # Relationships
+    meeting = db.relationship('Meeting', backref='polls')
+    creator = db.relationship('User', backref='created_polls')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'meeting_id': self.meeting_id,
+            'question': self.question,
+            'poll_type': self.poll_type,
+            'options': json.loads(self.options) if self.options else [],
+            'allow_multiple_answers': self.allow_multiple_answers,
+            'anonymous': self.anonymous,
+            'show_results_after': self.show_results_after,
+            'status': self.status,
+            'created_by': self.created_by,
+            'created_at': self.created_at.isoformat(),
+            'closed_at': self.closed_at.isoformat() if self.closed_at else None
+        }
+
+class PollResponse(db.Model):
+    """Poll responses"""
+    id = db.Column(db.Integer, primary_key=True)
+    poll_id = db.Column(db.Integer, db.ForeignKey('meeting_poll.id'), nullable=False)
+    participant_id = db.Column(db.Integer, db.ForeignKey('meeting_participant.id'), nullable=False)
+    
+    # Response data
+    selected_options = db.Column(db.Text, nullable=False)  # JSON array
+    rating = db.Column(db.Integer, nullable=True)  # For rating polls
+    
+    # Timestamp
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    poll = db.relationship('MeetingPoll', backref='responses')
+    participant = db.relationship('MeetingParticipant', backref='poll_responses')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'poll_id': self.poll_id,
+            'participant_id': self.participant_id,
+            'selected_options': json.loads(self.selected_options) if self.selected_options else [],
+            'rating': self.rating,
+            'submitted_at': self.submitted_at.isoformat()
+        }
+
+class Whiteboard(db.Model):
+    """Collaborative whiteboards"""
+    id = db.Column(db.Integer, primary_key=True)
+    meeting_id = db.Column(db.Integer, db.ForeignKey('meeting.id'), nullable=False)
+    
+    # Whiteboard details
+    name = db.Column(db.String(200), default='Whiteboard')
+    canvas_data = db.Column(db.Text, nullable=True)  # JSON canvas data
+    
+    # Settings
+    is_active = db.Column(db.Boolean, default=True)
+    allow_all_draw = db.Column(db.Boolean, default=True)
+    
+    # Creator
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    meeting = db.relationship('Meeting', backref='whiteboards')
+    creator = db.relationship('User', backref='whiteboards')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'meeting_id': self.meeting_id,
+            'name': self.name,
+            'canvas_data': json.loads(self.canvas_data) if self.canvas_data else None,
+            'is_active': self.is_active,
+            'allow_all_draw': self.allow_all_draw,
+            'created_by': self.created_by,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
+
+class BreakoutRoom(db.Model):
+    """Breakout rooms for group discussions"""
+    id = db.Column(db.Integer, primary_key=True)
+    meeting_id = db.Column(db.Integer, db.ForeignKey('meeting.id'), nullable=False)
+    
+    # Room details
+    room_name = db.Column(db.String(100), nullable=False)
+    room_number = db.Column(db.Integer, nullable=False)
+    
+    # Settings
+    duration = db.Column(db.Integer, nullable=True)  # minutes
+    allow_host_join = db.Column(db.Boolean, default=True)
+    
+    # Status
+    status = db.Column(db.String(20), default='active')  # active, closed
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    closed_at = db.Column(db.DateTime, nullable=True)
+    
+    # Relationships
+    meeting = db.relationship('Meeting', backref='breakout_rooms')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'meeting_id': self.meeting_id,
+            'room_name': self.room_name,
+            'room_number': self.room_number,
+            'duration': self.duration,
+            'allow_host_join': self.allow_host_join,
+            'status': self.status,
+            'created_at': self.created_at.isoformat(),
+            'closed_at': self.closed_at.isoformat() if self.closed_at else None
+        }
+
+class MeetingAnalytics(db.Model):
+    """Analytics for meetings"""
+    id = db.Column(db.Integer, primary_key=True)
+    meeting_id = db.Column(db.Integer, db.ForeignKey('meeting.id'), nullable=False)
+    participant_id = db.Column(db.Integer, db.ForeignKey('meeting_participant.id'), nullable=False)
+    
+    # Network metrics
+    avg_bitrate = db.Column(db.Float, nullable=True)
+    packet_loss = db.Column(db.Float, nullable=True)
+    jitter = db.Column(db.Float, nullable=True)
+    latency = db.Column(db.Float, nullable=True)
+    
+    # Activity metrics
+    audio_active_time = db.Column(db.Integer, default=0)
+    video_active_time = db.Column(db.Integer, default=0)
+    screen_share_time = db.Column(db.Integer, default=0)
+    chat_messages_sent = db.Column(db.Integer, default=0)
+    
+    # Quality metrics
+    audio_issues_count = db.Column(db.Integer, default=0)
+    video_issues_count = db.Column(db.Integer, default=0)
+    connection_drops = db.Column(db.Integer, default=0)
+    
+    # Engagement
+    engagement_score = db.Column(db.Float, nullable=True)
+    
+    # Timestamp
+    recorded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    meeting = db.relationship('Meeting', backref='analytics')
+    participant = db.relationship('MeetingParticipant', backref='analytics')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'meeting_id': self.meeting_id,
+            'participant_id': self.participant_id,
+            'avg_bitrate': self.avg_bitrate,
+            'packet_loss': self.packet_loss,
+            'jitter': self.jitter,
+            'latency': self.latency,
+            'audio_active_time': self.audio_active_time,
+            'video_active_time': self.video_active_time,
+            'screen_share_time': self.screen_share_time,
+            'chat_messages_sent': self.chat_messages_sent,
+            'audio_issues_count': self.audio_issues_count,
+            'video_issues_count': self.video_issues_count,
+            'connection_drops': self.connection_drops,
+            'engagement_score': self.engagement_score,
+            'recorded_at': self.recorded_at.isoformat()
+        }
+
+class MeetingEvent(db.Model):
+    """Meeting events for audit trail"""
+    id = db.Column(db.Integer, primary_key=True)
+    meeting_id = db.Column(db.Integer, db.ForeignKey('meeting.id'), nullable=False)
+    
+    # Event details
+    event_type = db.Column(db.String(50), nullable=False)
+    event_data = db.Column(db.Text, nullable=True)
+    description = db.Column(db.String(500), nullable=True)
+    
+    # User who triggered the event
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    
+    # Timestamp
+    occurred_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    meeting = db.relationship('Meeting', backref='events')
+    user = db.relationship('User', backref='meeting_events')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'meeting_id': self.meeting_id,
+            'event_type': self.event_type,
+            'event_data': json.loads(self.event_data) if self.event_data else None,
+            'description': self.description,
+            'user_id': self.user_id,
+            'occurred_at': self.occurred_at.isoformat()
+        }
+
+
 
 with app.app_context():
     # db.drop_all()
@@ -1581,7 +2279,6 @@ def publish_all_subject_results(subject_id):
     subject = Subject.query.get_or_404(subject_id)
     
     try:
-        # Get all approved unpublished results
         results = Result.query.filter_by(
             subject_id=subject_id,
             status='approved',
@@ -4192,9 +4889,1155 @@ def student_attendance_history():
     
     
     
+# Add these routes and SocketIO handlers to your Flask app
+# Place these after your existing routes
+
+import re
+from sqlalchemy import desc, asc
+
+@app.route('/messages')
+@login_required
+@first_login_required
+@student_approved_required
+def messages_home():
+    """Main messaging page"""
+    user = User.query.get(session['user_id'])
     
+    # Get user's chat rooms
+    chat_rooms = db.session.query(ChatRoom, ChatMember).join(
+        ChatMember, ChatRoom.id == ChatMember.room_id
+    ).filter(
+        ChatMember.user_id == session['user_id'],
+        ChatMember.is_active == True,
+        ChatRoom.is_active == True
+    ).order_by(ChatRoom.id.desc()).all()
     
+    # Get unread count for each room
+    room_data = []
+    for room, membership in chat_rooms:
+        unread_count = db.session.query(ChatMessage).filter(
+            ChatMessage.room_id == room.id,
+            ChatMessage.sent_at > membership.last_read_at,
+            ChatMessage.sender_id != session['user_id'],
+            ChatMessage.is_deleted == False
+        ).count()
+        
+        # Get last message
+        last_message = ChatMessage.query.filter_by(
+            room_id=room.id,
+            is_deleted=False
+        ).order_by(ChatMessage.sent_at.desc()).first()
+        
+        # Get other user (for private chats)
+        other_user = None
+        if room.room_type == 'private':
+            other_member = ChatMember.query.filter(
+                ChatMember.room_id == room.id,
+                ChatMember.user_id != session['user_id']
+            ).first()
+            if other_member:
+                other_user = User.query.get(other_member.user_id)
+        
+        room_data.append({
+            'room': room,
+            'membership': membership,
+            'unread_count': unread_count,
+            'last_message': last_message,
+            'other_user': other_user
+        })
     
+    return render_template('messages/home.html', room_data=room_data, user=user)
+
+
+@app.route('/messages/room/<int:room_id>')
+@login_required
+@first_login_required
+@student_approved_required
+def chat_room(room_id):
+    """View a specific chat room"""
+    # Check if user is member of this room
+    membership = ChatMember.query.filter_by(
+        room_id=room_id,
+        user_id=session['user_id'],
+        is_active=True
+    ).first()
+    
+    if not membership:
+        flash('You do not have access to this chat room', 'error')
+        return redirect(url_for('messages_home'))
+    
+    room = ChatRoom.query.get_or_404(room_id)
+    
+    # Get messages
+    messages = db.session.query(ChatMessage, User).join(
+        User, ChatMessage.sender_id == User.id
+    ).filter(
+        ChatMessage.room_id == room_id,
+        ChatMessage.is_deleted == False
+    ).order_by(ChatMessage.sent_at.asc()).all()
+    
+    # Get members
+    members = db.session.query(ChatMember, User).join(
+        User, ChatMember.user_id == User.id
+    ).filter(
+        ChatMember.room_id == room_id,
+        ChatMember.is_active == True
+    ).all()
+    
+    # Update last read time
+    membership.last_read_at = datetime.utcnow()
+    db.session.commit()
+    
+    # Get pinned message
+    pinned_message = None
+    if room.pinned_message_id:
+        pinned_message = ChatMessage.query.get(room.pinned_message_id)
+    
+    return render_template('messages/chat_room.html', 
+                         room=room, 
+                         messages=messages, 
+                         members=members,
+                         membership=membership,
+                         pinned_message=pinned_message)
+
+
+@app.route('/messages/create-private', methods=['POST'])
+@login_required
+@first_login_required
+@student_approved_required
+def create_private_chat():
+    """Create or get private chat with another user"""
+    other_user_id = request.form.get('user_id')
+    
+    if not other_user_id or int(other_user_id) == session['user_id']:
+        flash('Invalid user selection', 'error')
+        return redirect(url_for('messages_home'))
+    
+    # Check if admin is trying to create chat
+    user = User.query.get(session['user_id'])
+    other_user = User.query.get(other_user_id)
+    
+    # Admin can only receive messages, not initiate
+    if user.role == 'admin':
+        flash('Admins can only receive messages, not initiate chats', 'error')
+        return redirect(url_for('messages_home'))
+    
+    # Check if private chat already exists
+    existing_room = db.session.query(ChatRoom).join(
+        ChatMember, ChatRoom.id == ChatMember.room_id
+    ).filter(
+        ChatRoom.room_type == 'private',
+        ChatMember.user_id.in_([session['user_id'], other_user_id])
+    ).group_by(ChatRoom.id).having(
+        db.func.count(ChatMember.id) == 2
+    ).first()
+    
+    if existing_room:
+        return redirect(url_for('chat_room', room_id=existing_room.id))
+    
+    # Create new private chat
+    room = ChatRoom(
+        room_type='private',
+        created_by=session['user_id']
+    )
+    db.session.add(room)
+    db.session.flush()
+    
+    # Add both members
+    member1 = ChatMember(room_id=room.id, user_id=session['user_id'], role='member')
+    member2 = ChatMember(room_id=room.id, user_id=other_user_id, role='member')
+    
+    db.session.add(member1)
+    db.session.add(member2)
+    db.session.commit()
+    
+    log_activity(session['user_id'], 'Private Chat Created', 
+                f'Started private chat with user ID {other_user_id}', 
+                request.remote_addr)
+    
+    return redirect(url_for('chat_room', room_id=room.id))
+
+
+@app.route('/messages/create-group', methods=['GET', 'POST'])
+@login_required
+@first_login_required
+@student_approved_required
+@role_required(['admin', 'teacher', 'academic'])
+def create_group_chat():
+    """Create a group chat"""
+    if request.method == 'POST':
+        name = request.form.get('name')
+        description = request.form.get('description', '')
+        room_type = request.form.get('room_type', 'group')
+        course = request.form.get('course')
+        semester = request.form.get('semester')
+        department = request.form.get('department')
+        member_ids = request.form.getlist('members[]')
+        
+        if not name:
+            flash('Group name is required', 'error')
+            return redirect(url_for('create_group_chat'))
+        
+        # Create room
+        room = ChatRoom(
+            name=name,
+            description=description,
+            room_type=room_type,
+            course=course if room_type == 'class' else None,
+            semester=int(semester) if semester else None,
+            department=department if room_type == 'department' else None,
+            created_by=session['user_id']
+        )
+        db.session.add(room)
+        db.session.flush()
+        
+        # Add creator as admin
+        creator_member = ChatMember(
+            room_id=room.id,
+            user_id=session['user_id'],
+            role='admin'
+        )
+        db.session.add(creator_member)
+        
+        # Add selected members
+        for member_id in member_ids:
+            if int(member_id) != session['user_id']:
+                member = ChatMember(
+                    room_id=room.id,
+                    user_id=int(member_id),
+                    role='member'
+                )
+                db.session.add(member)
+        
+        db.session.commit()
+        
+        log_activity(session['user_id'], 'Group Chat Created', 
+                    f'Created group chat: {name}', 
+                    request.remote_addr)
+        
+        flash('Group chat created successfully!', 'success')
+        return redirect(url_for('chat_room', room_id=room.id))
+    
+    # GET request - show form
+    # Get all users for member selection
+    users = User.query.filter(
+        User.is_active == True,
+        User.id != session['user_id']
+    ).all()
+    
+    return render_template('messages/create_group.html', 
+                         users=users, 
+                         courses=COURSES, 
+                         departments=DEPARTMENTS)
+
+
+@app.route('/messages/search')
+@login_required
+@first_login_required
+@student_approved_required
+def search_messages():
+    """Search messages"""
+    query = request.args.get('q', '').strip()
+    room_id = request.args.get('room_id', type=int)
+    
+    if not query:
+        return jsonify({'results': []})
+    
+    # Get user's rooms
+    user_rooms = db.session.query(ChatMember.room_id).filter_by(
+        user_id=session['user_id'],
+        is_active=True
+    ).subquery()
+    
+    # Search messages
+    search_query = db.session.query(ChatMessage, User, ChatRoom).join(
+        User, ChatMessage.sender_id == User.id
+    ).join(
+        ChatRoom, ChatMessage.room_id == ChatRoom.id
+    ).filter(
+        ChatMessage.room_id.in_(user_rooms),
+        ChatMessage.is_deleted == False,
+        ChatMessage.message_text.ilike(f'%{query}%')
+    )
+    
+    if room_id:
+        search_query = search_query.filter(ChatMessage.room_id == room_id)
+    
+    results = search_query.order_by(ChatMessage.sent_at.desc()).limit(50).all()
+    
+    results_data = []
+    for message, user, room in results:
+        results_data.append({
+            'id': message.id,
+            'text': message.message_text,
+            'sender': user.username,
+            'room_name': room.name or 'Private Chat',
+            'room_id': room.id,
+            'sent_at': message.sent_at.strftime('%Y-%m-%d %H:%M:%S')
+        })
+    
+    return jsonify({'results': results_data})
+
+
+@app.route('/messages/edit/<int:message_id>', methods=['POST'])
+@login_required
+@first_login_required
+@student_approved_required
+def edit_message(message_id):
+    """Edit a message"""
+    message = ChatMessage.query.get_or_404(message_id)
+    
+    # Check if user owns the message
+    if message.sender_id != session['user_id']:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    new_text = request.json.get('text', '').strip()
+    
+    if not new_text:
+        return jsonify({'success': False, 'error': 'Message cannot be empty'}), 400
+    
+    message.message_text = new_text
+    message.is_edited = True
+    message.edited_at = datetime.utcnow()
+    
+    db.session.commit()
+    
+    # Emit update to room
+    socketio.emit('message_edited', {
+        'message_id': message.id,
+        'new_text': new_text,
+        'edited_at': message.edited_at.strftime('%Y-%m-%d %H:%M:%S')
+    }, room=f'room_{message.room_id}')
+    
+    return jsonify({'success': True})
+
+
+@app.route('/messages/delete/<int:message_id>', methods=['POST'])
+@login_required
+@first_login_required
+@student_approved_required
+def delete_message(message_id):
+    """Delete a message"""
+    message = ChatMessage.query.get_or_404(message_id)
+    user = User.query.get(session['user_id'])
+    
+    # Check permissions - user owns message OR is admin/moderator
+    membership = ChatMember.query.filter_by(
+        room_id=message.room_id,
+        user_id=session['user_id']
+    ).first()
+    
+    can_delete = (
+        message.sender_id == session['user_id'] or
+        user.role == 'admin' or
+        (membership and membership.role in ['admin', 'moderator'])
+    )
+    
+    if not can_delete:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    message.is_deleted = True
+    message.deleted_at = datetime.utcnow()
+    
+    db.session.commit()
+    
+    # Emit update to room
+    socketio.emit('message_deleted', {
+        'message_id': message.id
+    }, room=f'room_{message.room_id}')
+    
+    return jsonify({'success': True})
+
+
+@app.route('/messages/pin/<int:message_id>', methods=['POST'])
+@login_required
+@first_login_required
+@student_approved_required
+def pin_message(message_id):
+    """Pin a message in a room"""
+    message = ChatMessage.query.get_or_404(message_id)
+    user = User.query.get(session['user_id'])
+    
+    # Check permissions
+    membership = ChatMember.query.filter_by(
+        room_id=message.room_id,
+        user_id=session['user_id']
+    ).first()
+    
+    can_pin = (
+        user.role == 'admin' or
+        (membership and membership.role in ['admin', 'moderator'])
+    )
+    
+    if not can_pin:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    room = ChatRoom.query.get(message.room_id)
+    room.pinned_message_id = message.id
+    message.is_pinned = True
+    
+    db.session.commit()
+    
+    # Emit update to room
+    socketio.emit('message_pinned', {
+        'message_id': message.id,
+        'message_text': message.message_text,
+        'sender': User.query.get(message.sender_id).username
+    }, room=f'room_{message.room_id}')
+    
+    return jsonify({'success': True})
+
+
+@app.route('/messages/unpin/<int:room_id>', methods=['POST'])
+@login_required
+@first_login_required
+@student_approved_required
+def unpin_message(room_id):
+    """Unpin message from room"""
+    room = ChatRoom.query.get_or_404(room_id)
+    user = User.query.get(session['user_id'])
+    
+    # Check permissions
+    membership = ChatMember.query.filter_by(
+        room_id=room_id,
+        user_id=session['user_id']
+    ).first()
+    
+    can_unpin = (
+        user.role == 'admin' or
+        (membership and membership.role in ['admin', 'moderator'])
+    )
+    
+    if not can_unpin:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    if room.pinned_message_id:
+        old_message = ChatMessage.query.get(room.pinned_message_id)
+        if old_message:
+            old_message.is_pinned = False
+    
+    room.pinned_message_id = None
+    db.session.commit()
+    
+    # Emit update to room
+    socketio.emit('message_unpinned', {}, room=f'room_{room_id}')
+    
+    return jsonify({'success': True})
+
+
+@app.route('/messages/react/<int:message_id>', methods=['POST'])
+@login_required
+@first_login_required
+@student_approved_required
+def react_to_message(message_id):
+    """Add reaction to a message"""
+    emoji = request.json.get('emoji')
+    
+    if not emoji:
+        return jsonify({'success': False, 'error': 'Emoji required'}), 400
+    
+    message = ChatMessage.query.get_or_404(message_id)
+    
+    # Check if reaction already exists
+    existing = MessageReaction.query.filter_by(
+        message_id=message_id,
+        user_id=session['user_id'],
+        emoji=emoji
+    ).first()
+    
+    if existing:
+        # Remove reaction
+        db.session.delete(existing)
+        db.session.commit()
+        action = 'removed'
+    else:
+        # Add reaction
+        reaction = MessageReaction(
+            message_id=message_id,
+            user_id=session['user_id'],
+            emoji=emoji
+        )
+        db.session.add(reaction)
+        db.session.commit()
+        action = 'added'
+    
+    # Get reaction counts
+    reactions = db.session.query(
+        MessageReaction.emoji,
+        db.func.count(MessageReaction.id)
+    ).filter_by(message_id=message_id).group_by(MessageReaction.emoji).all()
+    
+    reaction_data = {emoji: count for emoji, count in reactions}
+    
+    # Emit update to room
+    socketio.emit('message_reaction', {
+        'message_id': message_id,
+        'reactions': reaction_data,
+        'action': action,
+        'user': User.query.get(session['user_id']).username
+    }, room=f'room_{message.room_id}')
+    
+    return jsonify({'success': True, 'reactions': reaction_data})
+
+
+@app.route('/messages/mark-read/<int:room_id>', methods=['POST'])
+@login_required
+@first_login_required
+@student_approved_required
+def mark_messages_read(room_id):
+    """Mark all messages in a room as read"""
+    membership = ChatMember.query.filter_by(
+        room_id=room_id,
+        user_id=session['user_id']
+    ).first_or_404()
+    
+    membership.last_read_at = datetime.utcnow()
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
+
+@app.route('/messages/export/<int:room_id>')
+@login_required
+@first_login_required
+@student_approved_required
+def export_chat(room_id):
+    """Export chat history to CSV"""
+    # Check membership
+    membership = ChatMember.query.filter_by(
+        room_id=room_id,
+        user_id=session['user_id']
+    ).first()
+    
+    if not membership:
+        flash('Unauthorized', 'error')
+        return redirect(url_for('messages_home'))
+    
+    room = ChatRoom.query.get_or_404(room_id)
+    messages = db.session.query(ChatMessage, User).join(
+        User, ChatMessage.sender_id == User.id
+    ).filter(
+        ChatMessage.room_id == room_id,
+        ChatMessage.is_deleted == False
+    ).order_by(ChatMessage.sent_at.asc()).all()
+    
+    # Create CSV
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Timestamp', 'Sender', 'Message', 'Type'])
+    
+    for message, user in messages:
+        writer.writerow([
+            message.sent_at.strftime('%Y-%m-%d %H:%M:%S'),
+            user.username,
+            message.message_text or '[File]',
+            message.message_type
+        ])
+    
+    # Create response
+    output.seek(0)
+    response = make_response(output.getvalue())
+    response.headers['Content-Disposition'] = f'attachment; filename=chat_export_{room_id}_{datetime.now().strftime("%Y%m%d")}.csv'
+    response.headers['Content-Type'] = 'text/csv'
+    
+    log_activity(session['user_id'], 'Chat Export', 
+                f'Exported chat room {room.name or room_id}', 
+                request.remote_addr)
+    
+    return response
+
+
+@app.route('/messages/users')
+@login_required
+@first_login_required
+@student_approved_required
+def get_users_for_chat():
+    """Get list of users to start a chat with"""
+    current_user = User.query.get(session['user_id'])
+    
+    # If user is admin, they can't initiate chats
+    if current_user.role == 'admin':
+        return jsonify({'users': []})
+    
+    # Get all active users except current user
+    users = User.query.filter(
+        User.is_active == True,
+        User.id != session['user_id']
+    ).all()
+    
+    user_list = []
+    for user in users:
+        # Get role profile info
+        profile_name = user.username
+        if user.role == 'student':
+            student = Student.query.filter_by(user_id=user.id).first()
+            if student:
+                profile_name = student.full_name
+        elif user.role == 'teacher':
+            teacher = Teacher.query.filter_by(user_id=user.id).first()
+            if teacher:
+                profile_name = teacher.full_name
+        elif user.role == 'academic':
+            academic = Academic.query.filter_by(user_id=user.id).first()
+            if academic:
+                profile_name = academic.full_name
+        
+        user_list.append({
+            'id': user.id,
+            'username': user.username,
+            'name': profile_name,
+            'role': user.role
+        })
+    
+    return jsonify({'users': user_list})
+
+
+# ====================== SOCKETIO HANDLERS ======================
+
+@socketio.on('connect')
+def handle_connect():
+    """Handle user connection"""
+    if 'user_id' not in session:
+        return False
+    
+    user_id = session['user_id']
+    
+    # Update user status
+    user_status = UserStatus.query.filter_by(user_id=user_id).first()
+    if not user_status:
+        user_status = UserStatus(user_id=user_id)
+        db.session.add(user_status)
+    
+    user_status.is_online = True
+    user_status.last_seen = datetime.utcnow()
+    user_status.socket_id = request.sid
+    db.session.commit()
+    
+    # Join user's rooms
+    user_rooms = ChatMember.query.filter_by(user_id=user_id, is_active=True).all()
+    for membership in user_rooms:
+        join_room(f'room_{membership.room_id}')
+    
+    # Broadcast online status - FIXED: Remove broadcast=True
+    user = User.query.get(user_id)
+    socketio.emit('user_online', {
+        'user_id': user_id,
+        'username': user.username
+    }, skip_sid=request.sid)  # Skip the current user
+
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Handle user disconnection"""
+    if 'user_id' not in session:
+        return
+    
+    user_id = session['user_id']
+    
+    # Update user status
+    user_status = UserStatus.query.filter_by(user_id=user_id).first()
+    if user_status:
+        user_status.is_online = False
+        user_status.last_seen = datetime.utcnow()
+        user_status.socket_id = None
+        db.session.commit()
+    
+    # Broadcast offline status - FIXED: Remove broadcast=True
+    user = User.query.get(user_id)
+    socketio.emit('user_offline', {
+        'user_id': user_id,
+        'username': user.username,
+        'last_seen': user_status.last_seen.strftime('%Y-%m-%d %H:%M:%S') if user_status else None
+    }, skip_sid=request.sid)  # Skip the current user
+
+
+@socketio.on('join_room')
+def handle_join_room(data):
+    """Join a specific chat room"""
+    room_id = data.get('room_id')
+    
+    if not room_id:
+        return
+    
+    # Verify membership
+    membership = ChatMember.query.filter_by(
+        room_id=room_id,
+        user_id=session['user_id'],
+        is_active=True
+    ).first()
+    
+    if not membership:
+        emit('error', {'message': 'Unauthorized access to room'})
+        return
+    
+    join_room(f'room_{room_id}')
+    
+    user = User.query.get(session['user_id'])
+    emit('user_joined', {
+        'user_id': user.id,
+        'username': user.username,
+        'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    }, room=f'room_{room_id}')
+
+
+@socketio.on('leave_room')
+def handle_leave_room(data):
+    """Leave a specific chat room"""
+    room_id = data.get('room_id')
+    
+    if not room_id:
+        return
+    
+    leave_room(f'room_{room_id}')
+    
+    user = User.query.get(session['user_id'])
+    emit('user_left', {
+        'user_id': user.id,
+        'username': user.username,
+        'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    }, room=f'room_{room_id}')
+
+
+@socketio.on('send_message')
+def handle_send_message(data):
+    """Send a message to a room"""
+    room_id = data.get('room_id')
+    message_text = data.get('message', '').strip()
+    reply_to_id = data.get('reply_to_id')
+    
+    if not room_id or not message_text:
+        emit('error', {'message': 'Invalid message data'})
+        return
+    
+    # Verify membership
+    membership = ChatMember.query.filter_by(
+        room_id=room_id,
+        user_id=session['user_id'],
+        is_active=True
+    ).first()
+    
+    if not membership:
+        emit('error', {'message': 'Unauthorized'})
+        return
+    
+    # Create message
+    message = ChatMessage(
+        room_id=room_id,
+        sender_id=session['user_id'],
+        message_text=message_text,
+        message_type='text',
+        reply_to_id=reply_to_id if reply_to_id else None
+    )
+    
+    # Extract mentions (@username)
+    mentions = re.findall(r'@(\w+)', message_text)
+    if mentions:
+        mentioned_user_ids = []
+        for username in mentions:
+            user = User.query.filter_by(username=username).first()
+            if user:
+                mentioned_user_ids.append(user.id)
+        
+        if mentioned_user_ids:
+            message.mentioned_users = json.dumps(mentioned_user_ids)
+    
+    db.session.add(message)
+    db.session.flush()
+    
+    # Create delivery records for all room members except sender
+    room_members = ChatMember.query.filter(
+        ChatMember.room_id == room_id,
+        ChatMember.user_id != session['user_id'],
+        ChatMember.is_active == True
+    ).all()
+    
+    for member in room_members:
+        delivery = MessageDelivery(
+            message_id=message.id,
+            user_id=member.user_id,
+            delivered=False
+        )
+        db.session.add(delivery)
+    
+    db.session.commit()
+    
+    # Get sender info
+    sender = User.query.get(session['user_id'])
+    sender_name = sender.username
+    
+    # Get full name if available
+    if sender.role == 'student':
+        student = Student.query.filter_by(user_id=sender.id).first()
+        if student:
+            sender_name = student.full_name
+    elif sender.role == 'teacher':
+        teacher = Teacher.query.filter_by(user_id=sender.id).first()
+        if teacher:
+            sender_name = teacher.full_name
+    elif sender.role == 'academic':
+        academic = Academic.query.filter_by(user_id=sender.id).first()
+        if academic:
+            sender_name = academic.full_name
+    
+    # Get reply-to message if exists
+    reply_to_data = None
+    if reply_to_id:
+        reply_msg = ChatMessage.query.get(reply_to_id)
+        if reply_msg:
+            reply_sender = User.query.get(reply_msg.sender_id)
+            reply_to_data = {
+                'id': reply_msg.id,
+                'text': reply_msg.message_text,
+                'sender': reply_sender.username
+            }
+    
+    # Emit message to room
+    emit('new_message', {
+        'message_id': message.id,
+        'sender_id': sender.id,
+        'sender_name': sender_name,
+        'sender_username': sender.username,
+        'message': message_text,
+        'timestamp': message.sent_at.strftime('%Y-%m-%d %H:%M:%S'),
+        'reply_to': reply_to_data
+    }, room=f'room_{room_id}')
+    
+    # Send notifications to mentioned users
+    if mentions:
+        for username in mentions:
+            mentioned_user = User.query.filter_by(username=username).first()
+            if mentioned_user and mentioned_user.id != session['user_id']:
+                notification = ChatNotification(
+                    user_id=mentioned_user.id,
+                    room_id=room_id,
+                    message_id=message.id,
+                    notification_type='mention',
+                    content=f'{sender_name} mentioned you in a message'
+                )
+                db.session.add(notification)
+        
+        db.session.commit()
+    
+    # Stop typing indicator
+    TypingIndicator.query.filter_by(
+        room_id=room_id,
+        user_id=session['user_id']
+    ).delete()
+    db.session.commit()
+
+
+@socketio.on('typing_start')
+def handle_typing_start(data):
+    """User started typing"""
+    room_id = data.get('room_id')
+    
+    if not room_id:
+        return
+    
+    # Add/update typing indicator
+    indicator = TypingIndicator.query.filter_by(
+        room_id=room_id,
+        user_id=session['user_id']
+    ).first()
+    
+    if not indicator:
+        indicator = TypingIndicator(
+            room_id=room_id,
+            user_id=session['user_id']
+        )
+        db.session.add(indicator)
+    else:
+        indicator.started_at = datetime.utcnow()
+    
+    db.session.commit()
+    
+    user = User.query.get(session['user_id'])
+    emit('user_typing', {
+        'user_id': user.id,
+        'username': user.username
+    }, room=f'room_{room_id}', include_self=False)
+
+
+@socketio.on('typing_stop')
+def handle_typing_stop(data):
+    """User stopped typing"""
+    room_id = data.get('room_id')
+    
+    if not room_id:
+        return
+    
+    # Remove typing indicator
+    TypingIndicator.query.filter_by(
+        room_id=room_id,
+        user_id=session['user_id']
+    ).delete()
+    db.session.commit()
+    
+    user = User.query.get(session['user_id'])
+    emit('user_stopped_typing', {
+        'user_id': user.id,
+        'username': user.username
+    }, room=f'room_{room_id}', include_self=False)
+
+
+@socketio.on('message_delivered')
+def handle_message_delivered(data):
+    """Mark message as delivered"""
+    message_id = data.get('message_id')
+    
+    if not message_id:
+        return
+    
+    delivery = MessageDelivery.query.filter_by(
+        message_id=message_id,
+        user_id=session['user_id']
+    ).first()
+    
+    if delivery and not delivery.delivered:
+        delivery.delivered = True
+        delivery.delivered_at = datetime.utcnow()
+        db.session.commit()
+
+
+@socketio.on('message_read')
+def handle_message_read(data):
+    """Mark message as read"""
+    message_id = data.get('message_id')
+    
+    if not message_id:
+        return
+    
+    delivery = MessageDelivery.query.filter_by(
+        message_id=message_id,
+        user_id=session['user_id']
+    ).first()
+    
+    if delivery:
+        delivery.read = True
+        delivery.read_at = datetime.utcnow()
+        if not delivery.delivered:
+            delivery.delivered = True
+            delivery.delivered_at = datetime.utcnow()
+        db.session.commit()
+        
+        # Notify sender
+        message = ChatMessage.query.get(message_id)
+        if message:
+            emit('message_read_receipt', {
+                'message_id': message_id,
+                'read_by': session['user_id'],
+                'read_at': delivery.read_at.strftime('%Y-%m-%d %H:%M:%S')
+            }, room=f'room_{message.room_id}')
+
+
+@socketio.on('upload_file')
+def handle_file_upload(data):
+    """Handle file upload in chat"""
+    room_id = data.get('room_id')
+    file_data = data.get('file_data')
+    file_name = data.get('file_name')
+    file_type = data.get('file_type')
+    
+    if not all([room_id, file_data, file_name]):
+        emit('error', {'message': 'Invalid file data'})
+        return
+    
+    # Verify membership
+    membership = ChatMember.query.filter_by(
+        room_id=room_id,
+        user_id=session['user_id'],
+        is_active=True
+    ).first()
+    
+    if not membership:
+        emit('error', {'message': 'Unauthorized'})
+        return
+    
+    try:
+        # Decode base64 file data
+        file_bytes = base64.b64decode(file_data.split(',')[1])
+        
+        # Generate unique filename
+        file_ext = file_name.rsplit('.', 1)[1].lower() if '.' in file_name else ''
+        unique_filename = f"{uuid.uuid4().hex}_{secure_filename(file_name)}"
+        file_path = os.path.join(app.config['MESSAGE_UPLOAD_FOLDER'], unique_filename)
+        
+        # Save file
+        with open(file_path, 'wb') as f:
+            f.write(file_bytes)
+        
+        file_size = len(file_bytes)
+        
+        # Determine message type
+        message_type = 'file'
+        if file_ext in ['png', 'jpg', 'jpeg', 'gif']:
+            message_type = 'image'
+        
+        # Create message
+        message = ChatMessage(
+            room_id=room_id,
+            sender_id=session['user_id'],
+            message_type=message_type,
+            file_path=f'uploads/messages/{unique_filename}',
+            file_name=file_name,
+            file_type=file_type,
+            file_size=file_size
+        )
+        
+        db.session.add(message)
+        db.session.commit()
+        
+        # Get sender info
+        sender = User.query.get(session['user_id'])
+        
+        # Emit message to room
+        emit('new_message', {
+            'message_id': message.id,
+            'sender_id': sender.id,
+            'sender_name': sender.username,
+            'message_type': message_type,
+            'file_path': message.file_path,
+            'file_name': file_name,
+            'file_size': file_size,
+            'timestamp': message.sent_at.strftime('%Y-%m-%d %H:%M:%S')
+        }, room=f'room_{room_id}')
+        
+    except Exception as e:
+        emit('error', {'message': f'File upload failed: {str(e)}'})
+
+
+@socketio.on('get_online_users')
+def handle_get_online_users(data):
+    """Get list of online users"""
+    room_id = data.get('room_id')
+    
+    if not room_id:
+        return
+    
+    # Get room members
+    members = db.session.query(User, UserStatus).join(
+        ChatMember, User.id == ChatMember.user_id
+    ).outerjoin(
+        UserStatus, User.id == UserStatus.user_id
+    ).filter(
+        ChatMember.room_id == room_id,
+        ChatMember.is_active == True
+    ).all()
+    
+    online_users = []
+    for user, status in members:
+        online_users.append({
+            'user_id': user.id,
+            'username': user.username,
+            'is_online': status.is_online if status else False,
+            'last_seen': status.last_seen.strftime('%Y-%m-%d %H:%M:%S') if status and status.last_seen else None
+        })
+    
+    emit('online_users_list', {'users': online_users})
+
+
+# ====================== ADMIN MESSAGING ROUTES ======================
+
+@app.route('/admin/broadcast-message', methods=['GET', 'POST'])
+@login_required
+@role_required(['admin'])
+@first_login_required
+def admin_broadcast():
+    """Admin can broadcast message to everyone"""
+    if request.method == 'POST':
+        target_type = request.form.get('target_type')  # 'all', 'course', 'semester', 'role'
+        target_value = request.form.get('target_value')
+        message_text = request.form.get('message')
+        
+        if not message_text:
+            flash('Message cannot be empty', 'error')
+            return redirect(url_for('admin_broadcast'))
+        
+        # Get target users
+        query = User.query.filter_by(is_active=True)
+        
+        if target_type == 'course':
+            student_ids = db.session.query(Student.user_id).filter_by(
+                course=target_value,
+                status='approved'
+            ).subquery()
+            query = query.filter(User.id.in_(student_ids))
+        elif target_type == 'semester':
+            student_ids = db.session.query(Student.user_id).filter_by(
+                semester=int(target_value),
+                status='approved'
+            ).subquery()
+            query = query.filter(User.id.in_(student_ids))
+        elif target_type == 'role':
+            query = query.filter_by(role=target_value)
+        
+        target_users = query.all()
+        
+        # Create private chat with each user and send message
+        sent_count = 0
+        for user in target_users:
+            if user.id == session['user_id']:
+                continue
+            
+            # Check if private chat exists
+            existing_room = db.session.query(ChatRoom).join(
+                ChatMember, ChatRoom.id == ChatMember.room_id
+            ).filter(
+                ChatRoom.room_type == 'private',
+                ChatMember.user_id.in_([session['user_id'], user.id])
+            ).group_by(ChatRoom.id).having(
+                db.func.count(ChatMember.id) == 2
+            ).first()
+            
+            if not existing_room:
+                # Create new private chat
+                room = ChatRoom(
+                    room_type='private',
+                    created_by=session['user_id']
+                )
+                db.session.add(room)
+                db.session.flush()
+                
+                member1 = ChatMember(room_id=room.id, user_id=session['user_id'], role='member')
+                member2 = ChatMember(room_id=room.id, user_id=user.id, role='member')
+                db.session.add(member1)
+                db.session.add(member2)
+            else:
+                room = existing_room
+            
+            # Send message
+            message = ChatMessage(
+                room_id=room.id,
+                sender_id=session['user_id'],
+                message_text=message_text,
+                message_type='text'
+            )
+            db.session.add(message)
+            
+            # Create notification
+            notification = ChatNotification(
+                user_id=user.id,
+                room_id=room.id,
+                message_id=message.id,
+                notification_type='new_message',
+                content=f'New message from Admin'
+            )
+            db.session.add(notification)
+            
+            sent_count += 1
+        
+        db.session.commit()
+        
+        log_activity(session['user_id'], 'Broadcast Message', 
+                    f'Sent broadcast message to {sent_count} users ({target_type}: {target_value})', 
+                    request.remote_addr)
+        
+        flash(f'Message sent to {sent_count} users!', 'success')
+        return redirect(url_for('admin_dashboard'))
+    
+    return render_template('messages/admin_broadcast.html', 
+                         courses=COURSES,
+                         roles=['student', 'teacher', 'academic'])    
     
     
     
@@ -5238,6 +7081,1041 @@ def get_exam_questions_api(exam_id):
         questions_data.append(question_data)
     
     return jsonify({'questions': questions_data})
+
+
+@app.template_filter('datetimeformat')
+def datetimeformat(value, format='%Y-%m-%d %H:%M:%S'):
+    """Convert datetime to string with specified format"""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        value = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    return value.strftime(format)
+
+@app.template_filter('dateformat')
+def dateformat(value, format='%Y-%m-%d'):
+    """Convert date to string with specified format"""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        value = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    return value.strftime(format)
+
+@app.template_filter('timeformat')
+def timeformat(value, format='%H:%M'):
+    """Convert time to string with specified format"""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        value = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    return value.strftime(format)
+def generate_meeting_id():
+    """Generate unique meeting ID"""
+    return ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(10))
+
+@socketio.on('participant_waiting')
+def handle_participant_waiting(data):
+    """Notify host when participant is waiting"""
+    try:
+        meeting_id = data.get('meeting_id')
+        user_id = data.get('user_id')
+        
+        meeting = Meeting.query.filter_by(meeting_id=meeting_id).first()
+        if not meeting:
+            return
+        
+        # Notify host
+        host_participant = MeetingParticipant.query.filter_by(
+            meeting_id=meeting.id,
+            user_id=meeting.host_id,
+            status='joined'
+        ).first()
+        
+        if host_participant and host_participant.socket_id:
+            # Get user info for notification
+            user = User.query.get(user_id)
+            user_name = user.username
+            
+            student = Student.query.filter_by(user_id=user_id).first()
+            teacher = Teacher.query.filter_by(user_id=user_id).first()
+            academic = Academic.query.filter_by(user_id=user_id).first()
+            
+            if student:
+                user_name = student.full_name
+            elif teacher:
+                user_name = teacher.full_name
+            elif academic:
+                user_name = academic.full_name
+            
+            emit('new_waiting_participant', {
+                'user_id': user_id,
+                'user_name': user_name,
+                'participant_id': data.get('participant_id'),
+                'waiting_since': datetime.utcnow().isoformat()
+            }, room=host_participant.socket_id)
+            
+    except Exception as e:
+        print(f'Error in participant_waiting: {str(e)}')
+
+@socketio.on('participant_approved')
+def handle_participant_approved(data):
+    """Handle when participant is approved by host"""
+    # This will be received by the participant
+    meeting_id = data.get('meeting_id')
+    participant_id = data.get('participant_id')
+    
+    # The participant will automatically redirect to the meeting room
+    print(f'Participant {participant_id} approved for meeting {meeting_id}')
+
+@socketio.on('participant_rejected')
+def handle_participant_rejected(data):
+    """Handle when participant is rejected by host"""
+    meeting_id = data.get('meeting_id')
+    reason = data.get('reason', 'Host rejected your request to join')
+    
+    # The participant will be notified and redirected
+    print(f'Participant rejected from meeting {meeting_id}: {reason}')
+
+@app.route('/api/meetings/<meeting_id>/participant/<int:participant_id>')
+@login_required
+def get_participant_status(meeting_id, participant_id):
+    """Get participant status"""
+    try:
+        participant = MeetingParticipant.query.filter_by(
+            id=participant_id,
+            meeting_id=Meeting.query.filter_by(meeting_id=meeting_id).first().id
+        ).first_or_404()
+        
+        return jsonify({
+            'success': True,
+            'participant': participant.to_dict()
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/meetings')
+@login_required
+@first_login_required
+@student_approved_required
+def meetings_dashboard():
+    """Main meetings dashboard"""
+    user_id = session['user_id']
+    user_role = session['role']
+    
+    # Upcoming meetings
+    upcoming = Meeting.query.filter(
+        Meeting.scheduled_start > datetime.utcnow(),
+        Meeting.status != 'cancelled'
+    ).filter(
+        (Meeting.host_id == user_id) |
+        (Meeting.id.in_(
+            db.session.query(MeetingParticipant.meeting_id).filter(
+                MeetingParticipant.user_id == user_id,
+                MeetingParticipant.status.in_(['invited', 'admitted'])
+            )
+        ))
+    ).order_by(Meeting.scheduled_start.asc()).limit(10).all()
+    
+    # Active meetings
+    active = Meeting.query.filter_by(status='active').filter(
+        (Meeting.host_id == user_id) |
+        (Meeting.id.in_(
+            db.session.query(MeetingParticipant.meeting_id).filter(
+                MeetingParticipant.user_id == user_id,
+                MeetingParticipant.status == 'joined'
+            )
+        ))
+    ).all()
+    
+    # Past meetings
+    past = Meeting.query.filter(
+        Meeting.status == 'ended'
+    ).filter(
+        (Meeting.host_id == user_id) |
+        (Meeting.id.in_(
+            db.session.query(MeetingParticipant.meeting_id).filter(
+                MeetingParticipant.user_id == user_id
+            )
+        ))
+    ).order_by(Meeting.actual_end.desc()).limit(20).all()
+    
+    return render_template('meetings/dashboard.html', 
+                         upcoming=upcoming, 
+                         active=active, 
+                         past=past,
+                         user_role=user_role)
+
+@app.route('/meetings/create', methods=['GET', 'POST'])
+@login_required
+@first_login_required
+@student_approved_required
+def create_meeting():
+    """Create new meeting"""
+    if request.method == 'POST':
+        try:
+            title = request.form['title']
+            description = request.form.get('description', '')
+            meeting_type = request.form['meeting_type']
+            duration = int(request.form.get('duration', 60))
+            
+            # Generate unique meeting ID
+            meeting_id = generate_meeting_id()
+            
+            # Create meeting
+            meeting = Meeting(
+                meeting_id=meeting_id,
+                title=title,
+                description=description,
+                meeting_type=meeting_type,
+                host_id=session['user_id'],
+                duration=duration,
+                waiting_room_enabled=request.form.get('waiting_room') == 'on',
+                require_approval=request.form.get('require_approval') == 'on',
+                allow_screen_share=request.form.get('allow_screen_share') == 'on',
+                allow_recording=request.form.get('allow_recording') == 'on',
+                allow_chat=request.form.get('allow_chat') == 'on',
+                mute_on_entry=request.form.get('mute_on_entry') == 'on',
+                video_on_entry=request.form.get('video_on_entry') == 'on',
+                max_participants=int(request.form.get('max_participants', 100))
+            )
+            
+            # Scheduled meeting settings
+            if meeting_type == 'scheduled':
+                meeting.scheduled_start = datetime.fromisoformat(request.form['scheduled_start'])
+                meeting.scheduled_end = meeting.scheduled_start + timedelta(minutes=duration)
+            
+            # Class meeting settings
+            if request.form.get('meeting_for') == 'class' and session['role'] in ['teacher', 'admin']:
+                meeting.subject_id = request.form.get('subject_id')
+                meeting.target_type = 'course'
+                meeting.target_value = request.form.get('course')
+            
+            # Security settings
+            if request.form.get('password'):
+                meeting.password = request.form['password']
+            
+            db.session.add(meeting)
+            db.session.commit()
+            
+            # Log activity
+            log_activity(session['user_id'], 'Meeting Created', 
+                        f'Created meeting: {title}', request.remote_addr)
+            
+            flash('Meeting created successfully!', 'success')
+            return redirect(url_for('meeting_room', meeting_id=meeting.meeting_id))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating meeting: {str(e)}', 'error')
+    
+    # Get available subjects for teachers
+    subjects = []
+    if session['role'] in ['teacher', 'admin']:
+        subjects = Subject.query.filter_by(is_active=True).all()
+    
+    return render_template('meetings/create.html', subjects=subjects)
+
+@app.route('/meetings/join/<meeting_id>')
+@login_required
+@first_login_required
+@student_approved_required
+def join_meeting(meeting_id):
+    """Join meeting page"""
+    meeting = Meeting.query.filter_by(meeting_id=meeting_id).first_or_404()
+    
+    # Check if meeting is active or scheduled to start soon
+    if meeting.status == 'ended':
+        flash('This meeting has ended', 'error')
+        return redirect(url_for('meetings_dashboard'))
+    
+    if meeting.status == 'cancelled':
+        flash('This meeting has been cancelled', 'error')
+        return redirect(url_for('meetings_dashboard'))
+    
+    # Check password if required
+    if meeting.password and request.args.get('pwd') != 'verified':
+        return render_template('meetings/password.html', meeting=meeting)
+    
+    # Create or update participant record
+    participant = MeetingParticipant.query.filter_by(
+        meeting_id=meeting.id,
+        user_id=session['user_id']
+    ).first()
+    
+    if not participant:
+        participant = MeetingParticipant(
+            meeting_id=meeting.id,
+            user_id=session['user_id'],
+            student_id=session.get('student_id'),
+            status='waiting' if meeting.waiting_room_enabled else 'admitted',
+            in_waiting_room=meeting.waiting_room_enabled
+        )
+        db.session.add(participant)
+        db.session.commit()
+    
+    return render_template('meetings/join.html', meeting=meeting, participant=participant)
+
+@app.route('/meetings/room/<meeting_id>')
+@login_required
+@first_login_required
+@student_approved_required
+def meeting_room(meeting_id):
+    """Main meeting room"""
+    meeting = Meeting.query.filter_by(meeting_id=meeting_id).first_or_404()
+    
+    participant = MeetingParticipant.query.filter_by(
+        meeting_id=meeting.id,
+        user_id=session['user_id']
+    ).first()
+    
+    if not participant or participant.status not in ['admitted', 'joined']:
+        return redirect(url_for('join_meeting', meeting_id=meeting_id))
+    
+    # Get all participants in the meeting
+    participants = MeetingParticipant.query.filter_by(
+        meeting_id=meeting.id,
+        status='joined'
+    ).all()
+    
+    # Get chat messages
+    chat_messages = MeetingChat.query.filter_by(
+        meeting_id=meeting.id,
+        is_deleted=False
+    ).order_by(MeetingChat.sent_at.asc()).limit(100).all()
+    
+    is_host = meeting.host_id == session['user_id']
+    
+    return render_template('meetings/room.html', 
+                         meeting=meeting, 
+                         participant=participant,
+                         participants=participants,
+                         chat_messages=chat_messages,
+                         is_host=is_host)
+
+@app.route('/api/meetings/<meeting_id>/start', methods=['POST'])
+@login_required
+def start_meeting(meeting_id):
+    """Start a meeting"""
+    try:
+        meeting = Meeting.query.filter_by(meeting_id=meeting_id).first_or_404()
+        
+        if meeting.host_id != session['user_id']:
+            return jsonify({'success': False, 'error': 'Only host can start the meeting'}), 403
+        
+        meeting.status = 'active'
+        meeting.actual_start = datetime.utcnow()
+        db.session.commit()
+        
+        # Log event
+        event = MeetingEvent(
+            meeting_id=meeting.id,
+            event_type='meeting_started',
+            user_id=session['user_id']
+        )
+        db.session.add(event)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Meeting started'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/meetings/<meeting_id>/end', methods=['POST'])
+@login_required
+def end_meeting(meeting_id):
+    """End a meeting"""
+    try:
+        meeting = Meeting.query.filter_by(meeting_id=meeting_id).first_or_404()
+        
+        if meeting.host_id != session['user_id']:
+            return jsonify({'success': False, 'error': 'Only host can end the meeting'}), 403
+        
+        meeting.status = 'ended'
+        meeting.actual_end = datetime.utcnow()
+        db.session.commit()
+        
+        # Log event
+        event = MeetingEvent(
+            meeting_id=meeting.id,
+            event_type='meeting_ended',
+            user_id=session['user_id']
+        )
+        db.session.add(event)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Meeting ended'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/meetings/<meeting_id>/participants')
+@login_required
+def get_meeting_participants(meeting_id):
+    """Get meeting participants"""
+    meeting = Meeting.query.filter_by(meeting_id=meeting_id).first_or_404()
+    
+    participants = MeetingParticipant.query.filter_by(
+        meeting_id=meeting.id
+    ).join(User).join(Student, isouter=True).all()
+    
+    participants_data = []
+    for p in participants:
+        participant_data = p.to_dict()
+        participant_data['user_name'] = p.user.username
+        if p.student:
+            participant_data['full_name'] = p.student.full_name
+        else:
+            # Try to get teacher or academic name
+            teacher = Teacher.query.filter_by(user_id=p.user_id).first()
+            academic = Academic.query.filter_by(user_id=p.user_id).first()
+            if teacher:
+                participant_data['full_name'] = teacher.full_name
+            elif academic:
+                participant_data['full_name'] = academic.full_name
+            else:
+                participant_data['full_name'] = p.user.username
+        
+        participants_data.append(participant_data)
+    
+    return jsonify({'success': True, 'participants': participants_data})
+
+@app.route('/api/meetings/<meeting_id>/chat', methods=['POST'])
+@login_required
+def send_chat_message(meeting_id):
+    """Send chat message"""
+    try:
+        meeting = Meeting.query.filter_by(meeting_id=meeting_id).first_or_404()
+        
+        data = request.get_json()
+        message_text = data.get('message_text', '').strip()
+        
+        if not message_text:
+            return jsonify({'success': False, 'error': 'Message cannot be empty'}), 400
+        
+        # Create chat message
+        chat_message = MeetingChat(
+            meeting_id=meeting.id,
+            sender_id=session['user_id'],
+            message_text=message_text,
+            message_type=data.get('message_type', 'public'),
+            recipient_id=data.get('recipient_id')
+        )
+        
+        db.session.add(chat_message)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': chat_message.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/meetings/<meeting_id>/chat')
+@login_required
+def get_chat_messages(meeting_id):
+    """Get chat messages"""
+    meeting = Meeting.query.filter_by(meeting_id=meeting_id).first_or_404()
+    
+    messages = MeetingChat.query.filter_by(
+        meeting_id=meeting.id,
+        is_deleted=False
+    ).order_by(MeetingChat.sent_at.asc()).limit(100).all()
+    
+    messages_data = []
+    for msg in messages:
+        message_data = msg.to_dict()
+        # Add sender name
+        sender = User.query.get(msg.sender_id)
+        message_data['sender_name'] = sender.username
+        
+        # Add sender role
+        teacher = Teacher.query.filter_by(user_id=msg.sender_id).first()
+        academic = Academic.query.filter_by(user_id=msg.sender_id).first()
+        student = Student.query.filter_by(user_id=msg.sender_id).first()
+        
+        if teacher:
+            message_data['sender_role'] = 'teacher'
+            message_data['sender_full_name'] = teacher.full_name
+        elif academic:
+            message_data['sender_role'] = 'academic'
+            message_data['sender_full_name'] = academic.full_name
+        elif student:
+            message_data['sender_role'] = 'student'
+            message_data['sender_full_name'] = student.full_name
+        else:
+            message_data['sender_role'] = 'user'
+            message_data['sender_full_name'] = sender.username
+        
+        messages_data.append(message_data)
+    
+    return jsonify({'success': True, 'messages': messages_data})
+
+
+@socketio.on('connect')
+def handle_connect():
+    """Handle client connection"""
+    print(f"Client connected: {request.sid}")
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Handle client disconnection"""
+    print(f"Client disconnected: {request.sid}")
+
+@socketio.on('join_meeting')
+def handle_join_meeting(data):
+    """Handle user joining a meeting room"""
+    try:
+        meeting_id = data.get('meeting_id')
+        user_id = data.get('user_id')
+        
+        if not meeting_id or not user_id:
+            emit('error', {'message': 'Missing required parameters'})
+            return
+        
+        # Verify meeting exists
+        meeting = Meeting.query.filter_by(meeting_id=meeting_id).first()
+        if not meeting:
+            emit('error', {'message': 'Meeting not found'})
+            return
+        
+        # Verify user is a participant
+        participant = MeetingParticipant.query.filter_by(
+            meeting_id=meeting.id,
+            user_id=user_id
+        ).first()
+        
+        if not participant and meeting.host_id != user_id:
+            emit('error', {'message': 'Access denied'})
+            return
+        
+        # Join the room
+        join_room(meeting_id)
+        
+        # Update participant status
+        if participant:
+            participant.status = 'joined'
+            participant.joined_at = datetime.utcnow()
+            participant.socket_id = request.sid
+            db.session.commit()
+        
+        # Get user info for notification
+        user = User.query.get(user_id)
+        user_name = user.username
+        
+        # Try to get full name
+        student = Student.query.filter_by(user_id=user_id).first()
+        teacher = Teacher.query.filter_by(user_id=user_id).first()
+        academic = Academic.query.filter_by(user_id=user_id).first()
+        
+        if student:
+            user_name = student.full_name
+        elif teacher:
+            user_name = teacher.full_name
+        elif academic:
+            user_name = academic.full_name
+        
+        # Notify others in the room
+        emit('user_joined', {
+            'user_id': user_id,
+            'user_name': user_name,
+            'joined_at': datetime.utcnow().isoformat(),
+            'participant_count': MeetingParticipant.query.filter_by(
+                meeting_id=meeting.id, 
+                status='joined'
+            ).count()
+        }, room=meeting_id, include_self=False)
+        
+        # Send current participants to the new user
+        participants = MeetingParticipant.query.filter_by(
+            meeting_id=meeting.id,
+            status='joined'
+        ).all()
+        
+        participants_data = []
+        for p in participants:
+            if p.user_id != user_id:  # Don't include self
+                p_user = User.query.get(p.user_id)
+                p_name = p_user.username
+                
+                p_student = Student.query.filter_by(user_id=p.user_id).first()
+                p_teacher = Teacher.query.filter_by(user_id=p.user_id).first()
+                p_academic = Academic.query.filter_by(user_id=p.user_id).first()
+                
+                if p_student:
+                    p_name = p_student.full_name
+                elif p_teacher:
+                    p_name = p_teacher.full_name
+                elif p_academic:
+                    p_name = p_academic.full_name
+                
+                participants_data.append({
+                    'user_id': p.user_id,
+                    'user_name': p_name,
+                    'role': p.role,
+                    'audio_enabled': p.audio_enabled,
+                    'video_enabled': p.video_enabled
+                })
+        
+        emit('current_participants', {
+            'participants': participants_data
+        }, room=request.sid)
+        
+        print(f'User {user_id} joined meeting {meeting_id}')
+        
+    except Exception as e:
+        print(f'Error in join_meeting: {str(e)}')
+        emit('error', {'message': 'Failed to join meeting'})
+
+@app.route('/api/meetings/<meeting_id>/waiting-room')
+@login_required
+def get_waiting_room_participants(meeting_id):
+    """Get participants in waiting room (host only)"""
+    try:
+        meeting = Meeting.query.filter_by(meeting_id=meeting_id).first_or_404()
+        
+        # Check if user is host
+        if meeting.host_id != session['user_id']:
+            return jsonify({'success': False, 'error': 'Only host can access waiting room'}), 403
+        
+        # Get participants in waiting room
+        waiting_participants = MeetingParticipant.query.filter_by(
+            meeting_id=meeting.id,
+            status='waiting'
+        ).all()
+        
+        participants_data = []
+        for participant in waiting_participants:
+            user = User.query.get(participant.user_id)
+            participant_data = participant.to_dict()
+            
+            # Add user info
+            student = Student.query.filter_by(user_id=participant.user_id).first()
+            teacher = Teacher.query.filter_by(user_id=participant.user_id).first()
+            academic = Academic.query.filter_by(user_id=participant.user_id).first()
+            
+            if student:
+                participant_data['full_name'] = student.full_name
+                participant_data['role'] = 'student'
+            elif teacher:
+                participant_data['full_name'] = teacher.full_name
+                participant_data['role'] = 'teacher'
+            elif academic:
+                participant_data['full_name'] = academic.full_name
+                participant_data['role'] = 'academic'
+            else:
+                participant_data['full_name'] = user.username
+                participant_data['role'] = 'user'
+            
+            participants_data.append(participant_data)
+        
+        return jsonify({
+            'success': True,
+            'waiting_participants': participants_data
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/meetings/<meeting_id>/approve-participant/<int:participant_id>', methods=['POST'])
+@login_required
+def approve_participant(meeting_id, participant_id):
+    """Approve a participant to join the meeting (host only)"""
+    try:
+        meeting = Meeting.query.filter_by(meeting_id=meeting_id).first_or_404()
+        
+        # Check if user is host
+        if meeting.host_id != session['user_id']:
+            return jsonify({'success': False, 'error': 'Only host can approve participants'}), 403
+        
+        participant = MeetingParticipant.query.filter_by(
+            id=participant_id,
+            meeting_id=meeting.id
+        ).first_or_404()
+        
+        # Update participant status
+        participant.status = 'admitted'
+        participant.in_waiting_room = False
+        
+        # Log event
+        event = MeetingEvent(
+            meeting_id=meeting.id,
+            event_type='participant_approved',
+            user_id=participant.user_id,
+            description=f'Participant {participant.user_id} approved to join meeting'
+        )
+        db.session.add(event)
+        db.session.commit()
+        
+        # Notify participant via Socket.IO
+        from app import socketio
+        socketio.emit('participant_approved', {
+            'meeting_id': meeting_id,
+            'participant_id': participant.id
+        }, room=participant.socket_id)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Participant approved successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/meetings/<meeting_id>/reject-participant/<int:participant_id>', methods=['POST'])
+@login_required
+def reject_participant(meeting_id, participant_id):
+    """Reject a participant from joining (host only)"""
+    try:
+        meeting = Meeting.query.filter_by(meeting_id=meeting_id).first_or_404()
+        
+        # Check if user is host
+        if meeting.host_id != session['user_id']:
+            return jsonify({'success': False, 'error': 'Only host can reject participants'}), 403
+        
+        participant = MeetingParticipant.query.filter_by(
+            id=participant_id,
+            meeting_id=meeting.id
+        ).first_or_404()
+        
+        # Update participant status
+        participant.status = 'rejected'
+        participant.in_waiting_room = False
+        
+        # Log event
+        event = MeetingEvent(
+            meeting_id=meeting.id,
+            event_type='participant_rejected',
+            user_id=participant.user_id,
+            description=f'Participant {participant.user_id} rejected from meeting'
+        )
+        db.session.add(event)
+        db.session.commit()
+        
+        # Notify participant via Socket.IO
+        from app import socketio
+        socketio.emit('participant_rejected', {
+            'meeting_id': meeting_id,
+            'reason': 'Host rejected your request to join'
+        }, room=participant.socket_id)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Participant rejected successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@socketio.on('leave_meeting')
+def handle_leave_meeting(data):
+    """Handle user leaving a meeting room"""
+    try:
+        meeting_id = data.get('meeting_id')
+        user_id = data.get('user_id')
+        
+        if not meeting_id or not user_id:
+            return
+        
+        leave_room(meeting_id)
+        
+        # Update participant status
+        participant = MeetingParticipant.query.filter_by(
+            meeting_id=Meeting.query.filter_by(meeting_id=meeting_id).first().id,
+            user_id=user_id
+        ).first()
+        
+        if participant:
+            participant.status = 'left'
+            participant.left_at = datetime.utcnow()
+            
+            # Calculate duration
+            if participant.joined_at:
+                duration = (datetime.utcnow() - participant.joined_at).seconds
+                participant.total_duration += duration
+            
+            db.session.commit()
+            
+            # Notify others
+            emit('user_left', {
+                'user_id': user_id,
+                'left_at': participant.left_at.isoformat(),
+                'participant_count': MeetingParticipant.query.filter_by(
+                    meeting_id=Meeting.query.filter_by(meeting_id=meeting_id).first().id,
+                    status='joined'
+                ).count()
+            }, room=meeting_id)
+        
+        print(f'User {user_id} left meeting {meeting_id}')
+        
+    except Exception as e:
+        print(f'Error in leave_meeting: {str(e)}')
+
+# WebRTC Signaling Events
+@socketio.on('webrtc_offer')
+def handle_webrtc_offer(data):
+    """Handle WebRTC offer"""
+    try:
+        meeting_id = data.get('meeting_id')
+        target_user_id = data.get('target_user_id')
+        offer = data.get('offer')
+        
+        # Forward offer to target user
+        emit('webrtc_offer', {
+            'offer': offer,
+            'from_user_id': data.get('from_user_id')
+        }, room=meeting_id, to=target_user_id)
+        
+    except Exception as e:
+        print(f'Error in webrtc_offer: {str(e)}')
+
+@socketio.on('webrtc_answer')
+def handle_webrtc_answer(data):
+    """Handle WebRTC answer"""
+    try:
+        meeting_id = data.get('meeting_id')
+        target_user_id = data.get('target_user_id')
+        answer = data.get('answer')
+        
+        # Forward answer to target user
+        emit('webrtc_answer', {
+            'answer': answer,
+            'from_user_id': data.get('from_user_id')
+        }, room=meeting_id, to=target_user_id)
+        
+    except Exception as e:
+        print(f'Error in webrtc_answer: {str(e)}')
+
+@socketio.on('ice_candidate')
+def handle_ice_candidate(data):
+    """Handle ICE candidate"""
+    try:
+        meeting_id = data.get('meeting_id')
+        target_user_id = data.get('target_user_id')
+        candidate = data.get('candidate')
+        
+        # Forward ICE candidate to target user
+        emit('ice_candidate', {
+            'candidate': candidate,
+            'from_user_id': data.get('from_user_id')
+        }, room=meeting_id, to=target_user_id)
+        
+    except Exception as e:
+        print(f'Error in ice_candidate: {str(e)}')
+
+# Media Control Events
+@socketio.on('toggle_audio')
+def handle_toggle_audio(data):
+    """Handle audio toggle"""
+    try:
+        meeting_id = data.get('meeting_id')
+        user_id = data.get('user_id')
+        enabled = data.get('enabled')
+        
+        # Update participant audio state
+        participant = MeetingParticipant.query.filter_by(
+            meeting_id=Meeting.query.filter_by(meeting_id=meeting_id).first().id,
+            user_id=user_id
+        ).first()
+        
+        if participant:
+            participant.audio_enabled = enabled
+            db.session.commit()
+        
+        emit('audio_state_changed', {
+            'user_id': user_id,
+            'audio_enabled': enabled
+        }, room=meeting_id)
+        
+    except Exception as e:
+        print(f'Error in toggle_audio: {str(e)}')
+
+@socketio.on('toggle_video')
+def handle_toggle_video(data):
+    """Handle video toggle"""
+    try:
+        meeting_id = data.get('meeting_id')
+        user_id = data.get('user_id')
+        enabled = data.get('enabled')
+        
+        # Update participant video state
+        participant = MeetingParticipant.query.filter_by(
+            meeting_id=Meeting.query.filter_by(meeting_id=meeting_id).first().id,
+            user_id=user_id
+        ).first()
+        
+        if participant:
+            participant.video_enabled = enabled
+            db.session.commit()
+        
+        emit('video_state_changed', {
+            'user_id': user_id,
+            'video_enabled': enabled
+        }, room=meeting_id)
+        
+    except Exception as e:
+        print(f'Error in toggle_video: {str(e)}')
+
+@socketio.on('toggle_screen_share')
+def handle_toggle_screen_share(data):
+    """Handle screen share toggle"""
+    try:
+        meeting_id = data.get('meeting_id')
+        user_id = data.get('user_id')
+        sharing = data.get('sharing')
+        
+        # Update participant screen share state
+        participant = MeetingParticipant.query.filter_by(
+            meeting_id=Meeting.query.filter_by(meeting_id=meeting_id).first().id,
+            user_id=user_id
+        ).first()
+        
+        if participant:
+            participant.screen_sharing = sharing
+            db.session.commit()
+        
+        emit('screen_share_changed', {
+            'user_id': user_id,
+            'screen_sharing': sharing
+        }, room=meeting_id)
+        
+    except Exception as e:
+        print(f'Error in toggle_screen_share: {str(e)}')
+
+@socketio.on('raise_hand')
+def handle_raise_hand(data):
+    """Handle hand raise"""
+    try:
+        meeting_id = data.get('meeting_id')
+        user_id = data.get('user_id')
+        raised = data.get('raised')
+        
+        participant = MeetingParticipant.query.filter_by(
+            meeting_id=Meeting.query.filter_by(meeting_id=meeting_id).first().id,
+            user_id=user_id
+        ).first()
+        
+        if participant:
+            participant.hand_raised = raised
+            participant.hand_raised_at = datetime.utcnow() if raised else None
+            db.session.commit()
+            
+            # Get user name for notification
+            user = User.query.get(user_id)
+            user_name = user.username
+            
+            student = Student.query.filter_by(user_id=user_id).first()
+            teacher = Teacher.query.filter_by(user_id=user_id).first()
+            academic = Academic.query.filter_by(user_id=user_id).first()
+            
+            if student:
+                user_name = student.full_name
+            elif teacher:
+                user_name = teacher.full_name
+            elif academic:
+                user_name = academic.full_name
+            
+            emit('hand_raised', {
+                'user_id': user_id,
+                'user_name': user_name,
+                'hand_raised': raised,
+                'raised_at': participant.hand_raised_at.isoformat() if raised else None
+            }, room=meeting_id)
+        
+    except Exception as e:
+        print(f'Error in raise_hand: {str(e)}')
+
+# Chat Events
+@socketio.on('send_message')
+def handle_send_message(data):
+    """Handle chat messages"""
+    try:
+        meeting_id = data.get('meeting_id')
+        sender_id = data.get('sender_id')
+        message_text = data.get('message_text', '').strip()
+        message_type = data.get('message_type', 'public')
+        recipient_id = data.get('recipient_id')
+        
+        if not message_text:
+            return
+        
+        meeting = Meeting.query.filter_by(meeting_id=meeting_id).first()
+        if not meeting:
+            return
+        
+        # Create chat message
+        chat_message = MeetingChat(
+            meeting_id=meeting.id,
+            sender_id=sender_id,
+            message_text=message_text,
+            message_type=message_type,
+            recipient_id=recipient_id,
+            sent_at=datetime.utcnow()
+        )
+        
+        db.session.add(chat_message)
+        db.session.commit()
+        
+        # Get sender info
+        sender = User.query.get(sender_id)
+        sender_name = sender.username
+        
+        student = Student.query.filter_by(user_id=sender_id).first()
+        teacher = Teacher.query.filter_by(user_id=sender_id).first()
+        academic = Academic.query.filter_by(user_id=sender_id).first()
+        
+        if student:
+            sender_name = student.full_name
+            sender_role = 'student'
+        elif teacher:
+            sender_name = teacher.full_name
+            sender_role = 'teacher'
+        elif academic:
+            sender_name = academic.full_name
+            sender_role = 'academic'
+        else:
+            sender_role = 'user'
+        
+        message_data = {
+            'id': chat_message.id,
+            'sender_id': sender_id,
+            'sender_name': sender_name,
+            'sender_role': sender_role,
+            'message_text': message_text,
+            'message_type': message_type,
+            'sent_at': chat_message.sent_at.isoformat()
+        }
+        
+        # Send to appropriate recipients
+        if message_type == 'public':
+            emit('new_message', message_data, room=meeting_id)
+        elif message_type == 'private' and recipient_id:
+            # Send to specific user
+            recipient_participant = MeetingParticipant.query.filter_by(
+                meeting_id=meeting.id,
+                user_id=recipient_id
+            ).first()
+            
+            if recipient_participant and recipient_participant.socket_id:
+                emit('new_message', message_data, room=recipient_participant.socket_id)
+            # Also send to sender
+            sender_participant = MeetingParticipant.query.filter_by(
+                meeting_id=meeting.id,
+                user_id=sender_id
+            ).first()
+            if sender_participant and sender_participant.socket_id:
+                emit('new_message', message_data, room=sender_participant.socket_id)
+        
+    except Exception as e:
+        print(f'Error in send_message: {str(e)}')
+        db.session.rollback()
 
 
 @app.errorhandler(500)

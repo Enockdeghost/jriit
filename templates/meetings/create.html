@@ -1,0 +1,241 @@
+{% extends "meetings/base_meeting.html" %}
+
+{% block meeting_title %}Create New Meeting{% endblock %}
+
+{% block meeting_content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white py-3">
+                    <h4 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Create New Meeting</h4>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" id="createMeetingForm">
+                        <!-- Basic Information -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="border-bottom pb-2 mb-3">Meeting Information</h5>
+                            </div>
+                            <div class="col-md-8 mb-3">
+                                <label for="title" class="form-label">Meeting Title *</label>
+                                <input type="text" class="form-control" id="title" name="title" required 
+                                       placeholder="Enter meeting title">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="meeting_type" class="form-label">Meeting Type *</label>
+                                <select class="form-select" id="meeting_type" name="meeting_type" required>
+                                    <option value="instant">Instant Meeting</option>
+                                    <option value="scheduled">Scheduled Meeting</option>
+                                    <option value="recurring">Recurring Meeting</option>
+                                </select>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label for="description" class="form-label">Description</label>
+                                <textarea class="form-control" id="description" name="description" 
+                                          rows="3" placeholder="Meeting description (optional)"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Scheduling (for scheduled meetings) -->
+                        <div class="row mb-4" id="schedulingSection" style="display: none;">
+                            <div class="col-12">
+                                <h5 class="border-bottom pb-2 mb-3">Scheduling</h5>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="scheduled_start" class="form-label">Start Date & Time *</label>
+                                <input type="datetime-local" class="form-control" id="scheduled_start" 
+                                       name="scheduled_start">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="duration" class="form-label">Duration (minutes) *</label>
+                                <select class="form-select" id="duration" name="duration">
+                                    <option value="30">30 minutes</option>
+                                    <option value="60" selected>1 hour</option>
+                                    <option value="90">1.5 hours</option>
+                                    <option value="120">2 hours</option>
+                                    <option value="180">3 hours</option>
+                                    <option value="240">4 hours</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Meeting Settings -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="border-bottom pb-2 mb-3">Meeting Settings</h5>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="max_participants" class="form-label">Max Participants</label>
+                                <input type="number" class="form-control" id="max_participants" 
+                                       name="max_participants" value="100" min="2" max="500">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="password" class="form-label">Meeting Password</label>
+                                <input type="password" class="form-control" id="password" 
+                                       name="password" placeholder="Optional">
+                            </div>
+                        </div>
+
+                        <!-- Security Settings -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="border-bottom pb-2 mb-3">Security & Access</h5>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="waiting_room" name="waiting_room" checked>
+                                    <label class="form-check-label" for="waiting_room">
+                                        Enable waiting room
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="require_approval" name="require_approval" checked>
+                                    <label class="form-check-label" for="require_approval">
+                                        Require host approval
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="mute_on_entry" name="mute_on_entry">
+                                    <label class="form-check-label" for="mute_on_entry">
+                                        Mute participants on entry
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="video_on_entry" name="video_on_entry" checked>
+                                    <label class="form-check-label" for="video_on_entry">
+                                        Enable video on entry
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="allow_recording" name="allow_recording" checked>
+                                    <label class="form-check-label" for="allow_recording">
+                                        Allow recording
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="allow_screen_share" name="allow_screen_share" checked>
+                                    <label class="form-check-label" for="allow_screen_share">
+                                        Allow screen sharing
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Class Meeting (for teachers) -->
+                        {% if session['role'] in ['teacher', 'admin'] and subjects %}
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="border-bottom pb-2 mb-3">Class Settings</h5>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Meeting For</label>
+                                <div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="meeting_for" id="meeting_personal" value="personal" checked>
+                                        <label class="form-check-label" for="meeting_personal">Personal</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="meeting_for" id="meeting_class" value="class">
+                                        <label class="form-check-label" for="meeting_class">Class</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3" id="classSettings" style="display: none;">
+                                <label for="subject_id" class="form-label">Subject</label>
+                                <select class="form-select" id="subject_id" name="subject_id">
+                                    <option value="">Select Subject</option>
+                                    {% for subject in subjects %}
+                                    <option value="{{ subject.id }}">{{ subject.subject_name }} ({{ subject.subject_code }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Action Buttons -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between">
+                                    <a href="{{ url_for('meetings_dashboard') }}" class="btn btn-secondary">
+                                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                                    </a>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-calendar-plus me-2"></i>Create Meeting
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Quick Tips -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h6><i class="fas fa-lightbulb text-warning me-2"></i>Quick Tips</h6>
+                    <ul class="small text-muted mb-0">
+                        <li>Instant meetings start immediately after creation</li>
+                        <li>Scheduled meetings can be joined at the specified time</li>
+                        <li>Use waiting room to control participant entry</li>
+                        <li>Set a password for additional security</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const meetingType = document.getElementById('meeting_type');
+    const schedulingSection = document.getElementById('schedulingSection');
+    
+    // Show/hide scheduling section based on meeting type
+    meetingType.addEventListener('change', function() {
+        if (this.value === 'scheduled' || this.value === 'recurring') {
+            schedulingSection.style.display = 'block';
+        } else {
+            schedulingSection.style.display = 'none';
+        }
+    });
+
+    // Class meeting settings
+    const meetingForRadios = document.querySelectorAll('input[name="meeting_for"]');
+    const classSettings = document.getElementById('classSettings');
+    
+    if (meetingForRadios.length > 0) {
+        meetingForRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.value === 'class') {
+                    classSettings.style.display = 'block';
+                } else {
+                    classSettings.style.display = 'none';
+                }
+            });
+        });
+    }
+
+    // Set minimum datetime for scheduled meetings to current time
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('scheduled_start').min = now.toISOString().slice(0, 16);
+
+    // Form validation
+    document.getElementById('createMeetingForm').addEventListener('submit', function(e) {
+        const meetingType = document.getElementById('meeting_type').value;
+        const scheduledStart = document.getElementById('scheduled_start').value;
+        
+        if ((meetingType === 'scheduled' || meetingType === 'recurring') && !scheduledStart) {
+            e.preventDefault();
+            alert('Please select a start date and time for scheduled meetings.');
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %}

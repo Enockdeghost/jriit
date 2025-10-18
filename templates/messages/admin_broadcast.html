@@ -1,0 +1,515 @@
+{% extends "base.html" %}
+
+{% block title %}Broadcast Message - Admin Panel{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 text-gradient-primary mb-2">Broadcast Message</h1>
+            <p class="text-muted mb-0">Send messages to multiple users at once</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-warning text-dark py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bullhorn me-2"></i>Admin Broadcast
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin_broadcast') }}" id="broadcastForm">
+                        <!-- Target Selection -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="target_type" class="form-label">
+                                        <strong>Target Audience *</strong>
+                                    </label>
+                                    <select class="form-select" id="target_type" name="target_type" required 
+                                            onchange="updateTargetOptions()">
+                                        <option value="">Select target type</option>
+                                        <option value="all">All Users</option>
+                                        <option value="role">By Role</option>
+                                        <option value="course">By Course</option>
+                                        <option value="semester">By Semester</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="target_value" class="form-label">
+                                        <strong>Specific Target</strong>
+                                    </label>
+                                    <select class="form-select" id="target_value" name="target_value" 
+                                            disabled>
+                                        <option value="">Select target</option>
+                                    </select>
+                                    <div class="form-text" id="targetHelp">
+                                        Choose the specific target for your message
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Message Content -->
+                        <div class="mb-4">
+                            <label for="message" class="form-label">
+                                <strong>Message Content *</strong>
+                            </label>
+                            <textarea class="form-control" id="message" name="message" 
+                                      rows="6" placeholder="Enter your broadcast message here..." 
+                                      required maxlength="1000"></textarea>
+                            <div class="d-flex justify-content-between mt-1">
+                                <div class="form-text">
+                                    Maximum 1000 characters
+                                </div>
+                                <div class="form-text">
+                                    <span id="charCount">0</span>/1000
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Preview Section -->
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label">
+                                    <strong>Message Preview</strong>
+                                </label>
+                                <button type="button" class="btn btn-outline-primary btn-sm" 
+                                        onclick="updatePreview()">
+                                    <i class="fas fa-sync me-1"></i>Refresh Preview
+                                </button>
+                            </div>
+                            <div class="border rounded p-3 bg-light">
+                                <div class="message-preview">
+                                    <div class="preview-header mb-2">
+                                        <strong>Admin</strong>
+                                        <small class="text-muted ms-2">Just now</small>
+                                    </div>
+                                    <div class="preview-content">
+                                        <p id="previewText" class="mb-0">Your message will appear here...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Impact Summary -->
+                        <div class="alert alert-info">
+                            <div class="d-flex">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-info-circle fa-lg mt-1"></i>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="alert-heading">Broadcast Impact</h6>
+                                    <div class="row text-center" id="impactSummary">
+                                        <div class="col">
+                                            <div class="impact-item">
+                                                <div class="impact-value text-primary" id="totalUsers">-</div>
+                                                <div class="impact-label">Total Users</div>
+                                            </div>
+                                        </div>
+                                        <div class="col">
+                                            <div class="impact-item">
+                                                <div class="impact-value text-success" id="targetCount">-</div>
+                                                <div class="impact-label">Target Users</div>
+                                            </div>
+                                        </div>
+                                        <div class="col">
+                                            <div class="impact-item">
+                                                <div class="impact-value text-warning" id="estimatedTime">-</div>
+                                                <div class="impact-label">Est. Time</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Confirmation -->
+                        <div class="mb-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="confirmation" required>
+                                <label class="form-check-label" for="confirmation">
+                                    <strong>I understand that this message will be sent to all selected users</strong>
+                                    <div class="form-text text-danger">
+                                        This action cannot be undone. Please verify your message before sending.
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                            <div class="form-text">
+                                <i class="fas fa-exclamation-triangle me-1 text-warning"></i>
+                                Broadcast messages are delivered as private messages
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-secondary" onclick="clearForm()">
+                                    Clear Form
+                                </button>
+                                <button type="submit" class="btn btn-warning" id="sendButton">
+                                    <i class="fas fa-paper-plane me-2"></i>Send Broadcast
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Recent Broadcasts -->
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-light py-3">
+                    <h6 class="mb-0">
+                        <i class="fas fa-history me-2 text-primary"></i>Recent Broadcasts
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Target</th>
+                                    <th>Message</th>
+                                    <th>Recipients</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-3">
+                                        <i class="fas fa-inbox fa-2x mb-2"></i>
+                                        <p>No recent broadcasts</p>
+                                        <small>Your broadcast history will appear here</small>
+                                    </td>
+                                </tr>
+                                <!-- Example row (commented out for now) -->
+                                <!--
+                                <tr>
+                                    <td>2024-01-15</td>
+                                    <td><span class="badge bg-primary">All Students</span></td>
+                                    <td>Welcome to new semester...</td>
+                                    <td>1,245</td>
+                                </tr>
+                                -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmationModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirm Broadcast
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <i class="fas fa-bullhorn fa-3x text-warning mb-3"></i>
+                    <h5>Ready to Send Broadcast</h5>
+                </div>
+                
+                <div class="broadcast-summary">
+                    <div class="row text-center mb-3">
+                        <div class="col">
+                            <div class="summary-item">
+                                <div class="summary-value text-primary" id="confirmTargetCount">-</div>
+                                <div class="summary-label">Users</div>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="summary-item">
+                                <div class="summary-value text-success" id="confirmTargetType">-</div>
+                                <div class="summary-label">Target</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="message-preview border rounded p-3 bg-light">
+                        <strong>Message Preview:</strong>
+                        <p id="confirmMessage" class="mb-0 mt-2"></p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-edit me-2"></i>Edit Message
+                </button>
+                <button type="button" class="btn btn-warning" onclick="submitBroadcast()">
+                    <i class="fas fa-paper-plane me-2"></i>Send Now
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Target options data
+    const targetOptions = {
+        'role': [
+            {% for role in ['student', 'teacher', 'academic'] %}
+            { value: '{{ role }}', label: '{{ role|title }} Users' },
+            {% endfor %}
+        ],
+        'course': [
+            {% for course in courses %}
+            { value: '{{ course }}', label: '{{ course }}' },
+            {% endfor %}
+        ],
+        'semester': [
+            {% for i in range(1, 7) %}
+            { value: '{{ i }}', label: 'Semester {{ i }}' },
+            {% endfor %}
+        ]
+    };
+
+    // Update target options based on selection
+    function updateTargetOptions() {
+        const targetType = document.getElementById('target_type').value;
+        const targetValue = document.getElementById('target_value');
+        const targetHelp = document.getElementById('targetHelp');
+        
+        if (targetType && targetType !== 'all') {
+            targetValue.disabled = false;
+            targetValue.innerHTML = '<option value="">Select ' + targetType + '</option>';
+            
+            targetOptions[targetType].forEach(option => {
+                const opt = document.createElement('option');
+                opt.value = option.value;
+                opt.textContent = option.label;
+                targetValue.appendChild(opt);
+            });
+            
+            targetHelp.textContent = `Select specific ${targetType} for targeting`;
+        } else {
+            targetValue.disabled = true;
+            targetValue.innerHTML = '<option value="">Not applicable</option>';
+            targetHelp.textContent = 'All users will receive this message';
+        }
+        
+        updateImpactSummary();
+    }
+
+    // Update character count
+    function updateCharCount() {
+        const message = document.getElementById('message').value;
+        const charCount = document.getElementById('charCount');
+        charCount.textContent = message.length;
+        
+        if (message.length > 900) {
+            charCount.classList.add('text-warning');
+        } else {
+            charCount.classList.remove('text-warning');
+        }
+        
+        if (message.length > 990) {
+            charCount.classList.add('text-danger');
+        } else {
+            charCount.classList.remove('text-danger');
+        }
+        
+        updatePreview();
+    }
+
+    // Update message preview
+    function updatePreview() {
+        const message = document.getElementById('message').value;
+        document.getElementById('previewText').textContent = message || 'Your message will appear here...';
+    }
+
+    // Update impact summary
+    function updateImpactSummary() {
+        // This would typically fetch real data from the server
+        // For now, we'll use mock data
+        const targetType = document.getElementById('target_type').value;
+        const targetValue = document.getElementById('target_value').value;
+        
+        let targetCount = 0;
+        let estimatedTime = '0s';
+        
+        // Mock impact calculations
+        if (targetType === 'all') {
+            targetCount = 1250;
+            estimatedTime = '2-3min';
+        } else if (targetType === 'role') {
+            targetCount = targetValue === 'student' ? 1000 : 
+                         targetValue === 'teacher' ? 200 : 50;
+            estimatedTime = '1-2min';
+        } else if (targetType === 'course') {
+            targetCount = 150;
+            estimatedTime = '30-60s';
+        } else if (targetType === 'semester') {
+            targetCount = 200;
+            estimatedTime = '30-60s';
+        }
+        
+        document.getElementById('totalUsers').textContent = '1,250';
+        document.getElementById('targetCount').textContent = targetCount.toLocaleString();
+        document.getElementById('estimatedTime').textContent = estimatedTime;
+    }
+
+    // Clear form
+    function clearForm() {
+        if (confirm('Are you sure you want to clear the form? All entered data will be lost.')) {
+            document.getElementById('broadcastForm').reset();
+            document.getElementById('target_value').disabled = true;
+            updateCharCount();
+            updateImpactSummary();
+        }
+    }
+
+    // Form submission with confirmation
+    document.getElementById('broadcastForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const message = document.getElementById('message').value.trim();
+        const targetType = document.getElementById('target_type').value;
+        
+        if (!message) {
+            alert('Please enter a message');
+            document.getElementById('message').focus();
+            return;
+        }
+        
+        if (!targetType) {
+            alert('Please select a target audience');
+            document.getElementById('target_type').focus();
+            return;
+        }
+        
+        // Update confirmation modal
+        document.getElementById('confirmTargetCount').textContent = 
+            document.getElementById('targetCount').textContent;
+        document.getElementById('confirmTargetType').textContent = 
+            document.getElementById('target_type').options[document.getElementById('target_type').selectedIndex].text;
+        document.getElementById('confirmMessage').textContent = message;
+        
+        // Show confirmation modal
+        new bootstrap.Modal(document.getElementById('confirmationModal')).show();
+    });
+
+    // Submit broadcast after confirmation
+    function submitBroadcast() {
+        const sendButton = document.getElementById('sendButton');
+        sendButton.disabled = true;
+        sendButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Sending...';
+        
+        // Submit the form
+        document.getElementById('broadcastForm').submit();
+    }
+
+    // Initialize when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add event listeners
+        document.getElementById('message').addEventListener('input', updateCharCount);
+        document.getElementById('target_type').addEventListener('change', updateImpactSummary);
+        document.getElementById('target_value').addEventListener('change', updateImpactSummary);
+        
+        // Initial updates
+        updateCharCount();
+        updateImpactSummary();
+    });
+</script>
+
+<style>
+.text-gradient-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.impact-item {
+    padding: 0.5rem;
+}
+
+.impact-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.impact-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+.summary-item {
+    padding: 0.5rem;
+}
+
+.summary-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.summary-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+.message-preview {
+    background-color: white;
+    border-radius: 8px;
+}
+
+.preview-header {
+    font-size: 0.875rem;
+}
+
+.preview-content {
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* Form validation styles */
+.form-control:focus {
+    border-color: #ffc107;
+    box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25);
+}
+
+.btn-warning {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #212529;
+}
+
+.btn-warning:hover {
+    background-color: #e0a800;
+    border-color: #d39e00;
+    color: #212529;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .impact-value {
+        font-size: 1.25rem;
+    }
+    
+    .summary-value {
+        font-size: 1.1rem;
+    }
+}
+</style>
+{% endblock %}

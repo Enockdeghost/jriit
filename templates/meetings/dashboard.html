@@ -1,0 +1,417 @@
+{% extends "meetings/base_meeting.html" %}
+
+{% block meeting_title %}Meetings Dashboard{% endblock %}
+
+{% block meeting_content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-2">Video Meetings</h1>
+                    <p class="text-muted">Schedule, join and manage your video conferences</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('create_meeting') }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>New Meeting
+                    </a>
+                    <button class="btn btn-outline-secondary ms-2" id="quickMeetingBtn">
+                        <i class="fas fa-bolt me-2"></i>Instant Meeting
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Active Meetings
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ active|length }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-video fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Upcoming Meetings
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ upcoming|length }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Total Participants Today
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% set total_participants = namespace(count=0) %}
+                                {% for meeting in active %}
+                                    {% set total_participants.count = total_participants.count + meeting.participants|length %}
+                                {% endfor %}
+                                {{ total_participants.count }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Recordings
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ past|selectattr('is_recorded')|list|length }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-record-vinyl fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Meetings -->
+    {% if active %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-play-circle me-2"></i>Active Meetings
+                    </h6>
+                    <span class="badge bg-success">Live</span>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for meeting in active %}
+                        <div class="col-lg-6 mb-3">
+                            <div class="card border-left-success h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <h5 class="card-title">
+                                                <a href="{{ url_for('meeting_room', meeting_id=meeting.meeting_id) }}" class="text-decoration-none">
+                                                    {{ meeting.title }}
+                                                </a>
+                                            </h5>
+                                            <p class="card-text text-muted small mb-2">
+                                                <i class="fas fa-user me-1"></i>Host: 
+                                                {% if meeting.teacher %}
+                                                    {{ meeting.teacher.full_name }}
+                                                {% else %}
+                                                    {{ meeting.host.username }}
+                                                {% endif %}
+                                            </p>
+                                            <p class="card-text text-muted small mb-2">
+                                                <i class="fas fa-users me-1"></i>
+                                                {{ meeting.participants|selectattr('status', 'equalto', 'joined')|list|length }} participants
+                                            </p>
+                                            <p class="card-text text-muted small">
+                                                <i class="fas fa-clock me-1"></i>
+                                                Started {{ meeting.actual_start|datetimeformat('%H:%M') if meeting.actual_start else 'Not started' }}
+                                            </p>
+                                        </div>
+                                        <div class="ms-3">
+                                            <a href="{{ url_for('meeting_room', meeting_id=meeting.meeting_id) }}" class="btn btn-success btn-sm">
+                                                <i class="fas fa-play me-1"></i>Join
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Upcoming Meetings -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-calendar-alt me-2"></i>Upcoming Meetings
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if upcoming %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Meeting</th>
+                                    <th>Date & Time</th>
+                                    <th>Duration</th>
+                                    <th>Host</th>
+                                    <th>Participants</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for meeting in upcoming %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ meeting.title }}</strong>
+                                        {% if meeting.description %}
+                                        <br><small class="text-muted">{{ meeting.description[:50] }}{% if meeting.description|length > 50 %}...{% endif %}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>
+                                            {{ meeting.scheduled_start|datetimeformat('%b %d, %Y') if meeting.scheduled_start else 'Not scheduled' }}<br>
+                                            {{ meeting.scheduled_start|datetimeformat('%H:%M') if meeting.scheduled_start else '' }}
+                                        </small>
+                                    </td>
+                                    <td>{{ meeting.duration }} min</td>
+                                    <td>
+                                        <small>
+                                            {% if meeting.teacher %}
+                                                {{ meeting.teacher.full_name }}
+                                            {% else %}
+                                                {{ meeting.host.username }}
+                                            {% endif %}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">
+                                            {{ meeting.participants|selectattr('status', 'equalto', 'invited')|list|length }} invited
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('join_meeting', meeting_id=meeting.meeting_id) }}" class="btn btn-outline-primary">
+                                                <i class="fas fa-door-open"></i>
+                                            </a>
+                                            {% if meeting.host_id == session['user_id'] or session['role'] in ['admin', 'teacher'] %}
+                                            <button class="btn btn-outline-secondary" onclick="copyMeetingLink('{{ meeting.meeting_id }}')" title="Copy invite link">
+                                                <i class="fas fa-link"></i>
+                                            </button>
+                                            <button class="btn btn-outline-danger" onclick="cancelMeeting('{{ meeting.meeting_id }}')" title="Cancel meeting">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No upcoming meetings scheduled</p>
+                        <a href="{{ url_for('create_meeting') }}" class="btn btn-primary">Schedule Your First Meeting</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Past Meetings -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-history me-2"></i>Recent Meetings
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if past %}
+                    <div class="row">
+                        {% for meeting in past[:6] %}
+                        <div class="col-lg-4 col-md-6 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ meeting.title }}</h6>
+                                    <p class="card-text text-muted small">
+                                        <i class="fas fa-clock me-1"></i>
+                                        {{ meeting.actual_end|datetimeformat('%b %d, %H:%M') if meeting.actual_end else 'Not ended' }}
+                                    </p>
+                                    <p class="card-text text-muted small">
+                                        <i class="fas fa-users me-1"></i>
+                                        {{ meeting.participants|selectattr('status', 'equalto', 'joined')|list|length }} attended
+                                    </p>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted">
+                                            {% if meeting.actual_start and meeting.actual_end %}
+                                            Duration: {{ ((meeting.actual_end - meeting.actual_start).total_seconds() / 60)|round|int }} min
+                                            {% else %}
+                                            Duration: N/A
+                                            {% endif %}
+                                        </small>
+                                        <div>
+                                            {% if meeting.is_recorded %}
+                                            <button class="btn btn-sm btn-outline-info">
+                                                <i class="fas fa-play-circle"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No past meetings found</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Meeting Modal -->
+<div class="modal fade" id="quickMeetingModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Start Instant Meeting</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="quickMeetingForm">
+                    <div class="mb-3">
+                        <label for="quickTitle" class="form-label">Meeting Title</label>
+                        <input type="text" class="form-control" id="quickTitle" value="Quick Meeting" required>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="quickWaitingRoom" checked>
+                        <label class="form-check-label" for="quickWaitingRoom">
+                            Enable waiting room
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="startQuickMeeting">Start Meeting</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function copyMeetingLink(meetingId) {
+    const link = `${window.location.origin}${"{{ url_for('join_meeting', meeting_id='') }}"}` + meetingId;
+    navigator.clipboard.writeText(link).then(() => {
+        showToast('Meeting link copied to clipboard!', 'success');
+    });
+}
+
+function cancelMeeting(meetingId) {
+    if (confirm('Are you sure you want to cancel this meeting?')) {
+        fetch(`/api/meetings/${meetingId}/cancel`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Meeting cancelled successfully', 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast('Error cancelling meeting', 'error');
+            }
+        });
+    }
+}
+
+// Quick meeting functionality
+document.getElementById('quickMeetingBtn').addEventListener('click', () => {
+    const modal = new bootstrap.Modal(document.getElementById('quickMeetingModal'));
+    modal.show();
+});
+
+document.getElementById('startQuickMeeting').addEventListener('click', () => {
+    const title = document.getElementById('quickTitle').value;
+    const waitingRoom = document.getElementById('quickWaitingRoom').checked;
+    
+    fetch('/api/meetings/quick', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            title: title,
+            waiting_room_enabled: waitingRoom
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = `/meetings/room/${data.meeting_id}`;
+        } else {
+            showToast('Error starting meeting', 'error');
+        }
+    });
+});
+
+function showToast(message, type = 'info') {
+    // Implement toast notification
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type} border-0 position-fixed top-0 end-0 m-3`;
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    setTimeout(() => toast.remove(), 3000);
+}
+</script>
+{% endblock %}

@@ -245,7 +245,7 @@
         </div>
     </nav>
 
-    {% if session.user_id %}
+  {% if session.user_id %}
     <!-- Hamburger Menu for Mobile -->
     <div class="hamburger-menu" id="hamburgerMenu">
         <div class="user-info-mobile">
@@ -259,6 +259,22 @@
         <div class="nav flex-column">
             <a class="nav-link" href="{{ url_for('dashboard') }}">
                 <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+            </a>
+            
+            <!-- Video Conference Link for All Users -->
+            <a class="nav-link" href="{{ url_for('meetings_dashboard') }}">
+                <i class="fas fa-video me-2"></i>Video Conference
+                <span class="badge bg-success text-white ms-2" style="font-size: 0.6rem; padding: 0.2em 0.35em;">
+                    <i class="fas fa-bolt me-1" style="font-size: 0.45rem;"></i>LIVE
+                </span>
+            </a>
+            
+            <!-- Messages Link for All Users -->
+            <a class="nav-link" href="{{ url_for('messages_home') }}">
+                <i class="fas fa-envelope me-2"></i>Messages
+                <span class="badge bg-primary text-white ms-2" style="font-size: 0.6rem; padding: 0.2em 0.35em;">
+                    <i class="fas fa-comment me-1" style="font-size: 0.45rem;"></i>NEW
+                </span>
             </a>
             
             {% if session.role == 'admin' %}
@@ -313,16 +329,7 @@
             </a>
             <a class="nav-link" href="{{ url_for('add_subject') }}">
                 <i class="fas fa-plus me-2"></i>Add Subject
-
             </a>
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('publish_results_dashboard') }}">
-                    <i class="fas fa-paper-plane me-2"></i>Publish Results
-                    <span class="badge bg-danger text-white ms-2" style="font-size: 0.6rem; padding: 0.2em 0.35em;">
-                        <i class="fas fa-plus me-1" style="font-size: 0.45rem;"></i>NEW
-                    </span>
-                </a>
-            </li>
             <a class="nav-link" href="{{ url_for('review_results') }}">
                 <i class="fas fa-check-circle me-2"></i>Review Results
             </a>
@@ -344,6 +351,11 @@
             <a href="{{ url_for('calendar') }}" class="nav-link">
                 <i class="bi bi-calendar-event me-2"></i>Calendar
             </a>
+            <a href="{{ url_for('scan_qr') }}" class="nav-link {% if request.path == '/student/scan-qr' %}active{% endif %}">
+                <i class="bi bi-qr-code-scan me-1"></i>
+                Scan Attendance
+                <span class="badge bg-danger ms-1" style="font-size: 0.6rem;">New</span>
+            </a>
             {% endif %}
             
             <div class="dropdown-divider"></div>
@@ -352,11 +364,6 @@
             </a>
             <a class="nav-link" href="{{ url_for('logout') }}">
                 <i class="fas fa-sign-out-alt me-2"></i>Logout
-            </a>
-            <a href="{{ url_for('scan_qr') }}" class="nav-link {% if request.path == '/student/scan-qr' %}active{% endif %}">
-                <i class="bi bi-qr-code-scan me-1"></i>
-                Scan Attendance
-                <span class="badge bg-danger ms-1" style="font-size: 0.6rem;">New</span>
             </a>
         </div>
     </div>
@@ -372,6 +379,26 @@
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('dashboard') }}">
                                 <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                            </a>
+                        </li>
+                        
+                        <!-- Video Conference Link for All Users -->
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('meetings_dashboard') }}">
+                                <i class="fas fa-video me-2"></i>Video Conference
+                                <span class="badge bg-success text-white ms-2" style="font-size: 0.6rem; padding: 0.2em 0.35em;">
+                                    <i class="fas fa-bolt me-1" style="font-size: 0.45rem;"></i>LIVE
+                                </span>
+                            </a>
+                        </li>
+                        
+                        <!-- Messages Link for All Users -->
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('messages_home') }}">
+                                <i class="fas fa-envelope me-2"></i>Messages
+                                <span class="badge bg-primary text-white ms-2" style="font-size: 0.6rem; padding: 0.2em 0.35em;">
+                                    <i class="fas fa-comment me-1" style="font-size: 0.45rem;"></i>NEW
+                                </span>
                             </a>
                         </li>
                         
@@ -392,26 +419,26 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{{ url_for('calendar') }}" class="nav-link ">
+                            <a href="{{ url_for('calendar') }}" class="nav-link">
                                 <i class="bi bi-calendar-event"></i>
                                 Calendar
                             </a>
-                            
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('admin_results') }}">
-                                    <i class="fas fa-poll me-2"></i>Manage Results
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('admin_activity_log') }}">
-                                    <i class="fas fa-clipboard-list me-2"></i>Activity Log
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('admin_notifications') }}">
-                                    <i class="fas fa-bell me-2"></i>Notifications
-                                </a>
-                            </li>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin_results') }}">
+                                <i class="fas fa-poll me-2"></i>Manage Results
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin_activity_log') }}">
+                                <i class="fas fa-clipboard-list me-2"></i>Activity Log
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin_notifications') }}">
+                                <i class="fas fa-bell me-2"></i>Notifications
+                            </a>
+                        </li>
                         {% endif %}
                         
                         {% if session.role == 'teacher' %}
@@ -476,7 +503,7 @@
                         <li class="nav-item">
                             <a href="{{ url_for('calendar') }}" class="nav-link {% if request.path == '/calendar' %}active{% endif %}">
                                 <i class="bi bi-calendar-event"></i>
-                                 Calendar
+                                Calendar
                             </a>
                         </li>
                         {% endif %}
@@ -494,19 +521,17 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                                <a href="{{ url_for('scan_qr') }}" class="nav-link {% if request.path == '/student/scan-qr' %}active{% endif %}">
-                                    <i class="bi bi-qr-code-scan me-1"></i>
-                                    Scan Attendance
-                                    <span class="badge bg-danger ms-1" style="font-size: 0.6rem;">New</span>
-                                </a>
+                            <a href="{{ url_for('scan_qr') }}" class="nav-link {% if request.path == '/student/scan-qr' %}active{% endif %}">
+                                <i class="bi bi-qr-code-scan me-1"></i>
+                                Scan Attendance
+                                <span class="badge bg-danger ms-1" style="font-size: 0.6rem;">New</span>
+                            </a>
                         </li>
                         {% endif %}
                     </ul>
                 </div>
             </nav>
-            {% endif %}
-
-            <!-- Main Content -->
+            {% endif %}          <!-- Main Content -->
             <main class="{% if session.user_id and not request.endpoint in ['login', 'student_register', 'index'] %}col-md-9 ms-sm-auto col-lg-10{% else %}col-12{% endif %} main-content">
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
