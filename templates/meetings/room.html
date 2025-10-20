@@ -19,12 +19,12 @@
     background: #1a1a1a;
     display: flex;
     flex-direction: column;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .video-container {
     flex: 1;
     display: flex;
-    flex-direction: column;
     position: relative;
     overflow: hidden;
 }
@@ -45,16 +45,12 @@
     overflow: hidden;
     transition: all 0.3s ease;
     border: 2px solid transparent;
+    min-height: 200px;
 }
 
 .video-item.active-speaker {
     border-color: var(--success-color);
     box-shadow: 0 0 20px rgba(6, 214, 160, 0.3);
-}
-
-.video-item.pinned {
-    grid-column: span 2;
-    grid-row: span 2;
 }
 
 .video-item video {
@@ -75,10 +71,10 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    color: white;
 }
 
 .participant-name {
-    color: white;
     font-size: 14px;
     font-weight: 500;
 }
@@ -108,10 +104,6 @@
     color: #000;
 }
 
-.status-sharing {
-    background: var(--primary-color);
-}
-
 .controls-bar {
     background: rgba(45, 45, 45, 0.95);
     backdrop-filter: blur(10px);
@@ -139,26 +131,23 @@
     font-size: 18px;
     transition: all 0.3s ease;
     cursor: pointer;
+    color: white;
 }
 
 .control-btn.primary {
     background: var(--primary-color);
-    color: white;
 }
 
 .control-btn.success {
     background: var(--success-color);
-    color: white;
 }
 
 .control-btn.danger {
     background: var(--danger-color);
-    color: white;
 }
 
 .control-btn.secondary {
     background: #555;
-    color: white;
 }
 
 .control-btn.warning {
@@ -170,30 +159,17 @@
     transform: scale(1.05);
 }
 
-.control-btn:active {
-    transform: scale(0.95);
-}
-
 .control-btn.active {
     box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
 }
 
-.control-btn.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.meeting-info {
+.meeting-header {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    z-index: 100;
     color: white;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
-.meeting-timer {
-    font-family: 'Courier New', monospace;
-    font-weight: bold;
 }
 
 .sidebar {
@@ -224,19 +200,27 @@
     border-bottom: 2px solid var(--primary-color);
 }
 
-.sidebar-tab:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
 .sidebar-content {
     flex: 1;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-tab-content {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+}
+
+.sidebar-tab-content.active {
+    display: flex;
 }
 
 .participants-list {
-    padding: 16px;
+    flex: 1;
     overflow-y: auto;
-    max-height: 100%;
+    padding: 16px;
 }
 
 .participant-item {
@@ -247,11 +231,7 @@
     border-radius: 8px;
     margin-bottom: 8px;
     background: rgba(255, 255, 255, 0.05);
-    transition: all 0.3s ease;
-}
-
-.participant-item:hover {
-    background: rgba(255, 255, 255, 0.1);
+    color: white;
 }
 
 .participant-avatar {
@@ -266,51 +246,11 @@
     font-weight: bold;
 }
 
-.participant-details {
-    flex: 1;
-}
-
-.participant-name {
-    color: white;
-    font-size: 14px;
-    font-weight: 500;
-    margin-bottom: 2px;
-}
-
-.participant-role {
-    color: #aaa;
-    font-size: 12px;
-}
-
-.participant-actions {
-    display: flex;
-    gap: 4px;
-}
-
-.action-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: none;
-    background: rgba(255, 255, 255, 0.1);
-    color: #ccc;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    transition: all 0.3s ease;
-}
-
-.action-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-}
-
 .chat-container {
-    padding: 16px;
+    flex: 1;
     display: flex;
     flex-direction: column;
-    height: 100%;
+    padding: 16px;
 }
 
 .chat-messages {
@@ -324,42 +264,7 @@
     margin-bottom: 8px;
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.05);
-}
-
-.chat-message.own {
-    background: rgba(67, 97, 238, 0.2);
-    margin-left: 20px;
-}
-
-.chat-message.system {
-    background: rgba(255, 209, 102, 0.1);
-    text-align: center;
-    font-style: italic;
-}
-
-.message-header {
-    display: flex;
-    justify-content: between;
-    align-items: center;
-    margin-bottom: 4px;
-}
-
-.message-sender {
-    font-weight: bold;
-    color: var(--primary-color);
-    font-size: 12px;
-}
-
-.message-time {
-    color: #aaa;
-    font-size: 11px;
-    margin-left: auto;
-}
-
-.message-text {
     color: white;
-    font-size: 14px;
-    line-height: 1.4;
 }
 
 .chat-input-container {
@@ -374,70 +279,10 @@
     border-radius: 24px;
     background: rgba(255, 255, 255, 0.1);
     color: white;
-    font-size: 14px;
 }
 
-.chat-input:focus {
-    outline: none;
-    border-color: var(--primary-color);
-}
-
-.chat-send-btn {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    border: none;
-    background: var(--primary-color);
-    color: white;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-}
-
-.chat-send-btn:hover {
-    background: #3651d4;
-    transform: scale(1.05);
-}
-
-.hand-raised {
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(255, 209, 102, 0.7); }
-    70% { box-shadow: 0 0 0 10px rgba(255, 209, 102, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(255, 209, 102, 0); }
-}
-
-/* Responsive Design */
+/* Responsive */
 @media (max-width: 768px) {
-    .video-grid {
-        grid-template-columns: 1fr;
-        padding: 10px;
-        gap: 8px;
-    }
-    
-    .video-item.pinned {
-        grid-column: span 1;
-        grid-row: span 1;
-    }
-    
-    .controls-bar {
-        padding: 12px 16px;
-    }
-    
-    .control-btn {
-        width: 44px;
-        height: 44px;
-        font-size: 16px;
-    }
-    
-    .meeting-info {
-        font-size: 12px;
-    }
-    
     .sidebar {
         position: fixed;
         top: 0;
@@ -451,20 +296,25 @@
     .sidebar.open {
         right: 0;
     }
+    
+    .video-grid {
+        grid-template-columns: 1fr;
+        padding: 10px;
+    }
 }
 </style>
 {% endblock %}
 
 {% block meeting_content %}
-<div class="meeting-room" id="meetingRoom">
+<div class="meeting-room">
     <!-- Main Video Area -->
     <div class="video-container">
         <div class="video-grid" id="videoGrid">
             <!-- Local Video -->
             <div class="video-item local-video" id="localVideoContainer">
-                <video id="localVideo" autoplay muted></video>
+                <video id="localVideo" autoplay muted playsinline></video>
                 <div class="video-overlay">
-                    <span class="participant-name">You</span>
+                    <span class="participant-name">You ({{ session['username'] }})</span>
                     <div class="participant-status">
                         <div class="status-icon status-muted" id="localMicStatus" style="display: none;">
                             <i class="fas fa-microphone-slash"></i>
@@ -475,42 +325,27 @@
                     </div>
                 </div>
             </div>
-            <!-- Remote videos will be added here dynamically -->
         </div>
 
         <!-- Meeting Header -->
-        <div class="meeting-header" style="position: absolute; top: 20px; left: 20px; right: 20px; z-index: 100;">
+        <div class="meeting-header">
             <div class="d-flex justify-content-between align-items-center">
                 <div class="meeting-info">
-                    <span class="meeting-title">{{ meeting.title }}</span>
-                    <span class="meeting-timer" id="meetingTimer">00:00:00</span>
-                    <span class="participant-count">
+                    <strong>{{ meeting.title }}</strong>
+                    <span class="meeting-timer ms-3" id="meetingTimer">00:00:00</span>
+                    <span class="participant-count ms-3">
                         <i class="fas fa-users me-1"></i>
                         <span id="participantCount">1</span>
                     </span>
                 </div>
                 <div class="meeting-actions">
                     <button class="btn btn-sm btn-outline-light me-2" id="sidebarToggle">
-                        <i class="fas fa-chevron-left"></i>
+                        <i class="fas fa-chevron-left"></i> Panel
                     </button>
                     {% if is_host %}
-                    <div class="btn-group">
-                        <button class="btn btn-sm btn-outline-light dropdown-toggle" data-bs-toggle="dropdown">
-                            <i class="fas fa-cog"></i>
-                        </button>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#" id="recordMeeting">
-                                <i class="fas fa-record-vinyl me-2"></i>Start Recording
-                            </a></li>
-                            <li><a class="dropdown-item" href="#" id="lockMeeting">
-                                <i class="fas fa-lock me-2"></i>Lock Meeting
-                            </a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="#" id="endMeetingForAll">
-                                <i class="fas fa-sign-out-alt me-2"></i>End Meeting for All
-                            </a></li>
-                        </ul>
-                    </div>
+                    <button class="btn btn-sm btn-outline-light" id="hostControls">
+                        <i class="fas fa-cog"></i> Host Controls
+                    </button>
                     {% endif %}
                 </div>
             </div>
@@ -565,7 +400,17 @@
             <!-- Participants Tab -->
             <div class="sidebar-tab-content active" id="participantsTab">
                 <div class="participants-list" id="participantsList">
-                    <!-- Participants will be populated dynamically -->
+                    <div class="participant-item">
+                        <div class="participant-avatar">
+                            {{ session['username'][0]|upper }}
+                        </div>
+                        <div class="participant-details">
+                            <div class="participant-name">You ({{ session['username'] }})</div>
+                            <div class="participant-role">
+                                {% if is_host %}Host{% else %}Participant{% endif %}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -573,11 +418,15 @@
             <div class="sidebar-tab-content" id="chatTab">
                 <div class="chat-container">
                     <div class="chat-messages" id="chatMessages">
-                        <!-- Chat messages will be populated dynamically -->
+                        <div class="chat-message system">
+                            <div class="message-text">
+                                Welcome to the meeting! Chat is now active.
+                            </div>
+                        </div>
                     </div>
                     <div class="chat-input-container">
                         <input type="text" class="chat-input" id="chatInput" placeholder="Type a message...">
-                        <button class="chat-send-btn" id="chatSend">
+                        <button class="control-btn primary" id="chatSend">
                             <i class="fas fa-paper-plane"></i>
                         </button>
                     </div>
@@ -620,18 +469,9 @@
 const MEETING_ID = '{{ meeting.meeting_id }}';
 const USER_ID = {{ session['user_id'] }};
 const IS_HOST = {{ 'true' if is_host else 'false' }};
-const USER_NAME = '{{ session["username"] }}';
-
-// WebRTC configuration
-const configuration = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-    ]
-};
+const USER_NAME = '{{ session.get("username", "User") }}';
 
 let localStream = null;
-let peerConnections = {};
 let socket = null;
 let meetingStartTime = new Date();
 let timerInterval = null;
@@ -640,6 +480,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeMeeting();
     initializeSocket();
     startMeetingTimer();
+    initializeUIControls();
 });
 
 async function initializeMeeting() {
@@ -652,13 +493,11 @@ async function initializeMeeting() {
         
         // Display local video
         const localVideo = document.getElementById('localVideo');
-        localVideo.srcObject = localStream;
+        if (localVideo) {
+            localVideo.srcObject = localStream;
+        }
         
-        // Initialize media controls
-        initializeMediaControls();
-        
-        // Initialize UI controls
-        initializeUIControls();
+        console.log('Media devices initialized successfully');
         
     } catch (error) {
         console.error('Error accessing media devices:', error);
@@ -667,50 +506,51 @@ async function initializeMeeting() {
 }
 
 function initializeSocket() {
-    socket = io();
-    
-    socket.emit('join_meeting', {
-        meeting_id: MEETING_ID,
-        user_id: USER_ID
-    });
-    
-    // Socket event handlers
-    socket.on('connect', () => {
-        console.log('Connected to meeting server');
-    });
-    
-    socket.on('user_joined', handleUserJoined);
-    socket.on('user_left', handleUserLeft);
-    socket.on('current_participants', handleCurrentParticipants);
-    
-    // WebRTC signaling
-    socket.on('webrtc_offer', handleWebRTCOffer);
-    socket.on('webrtc_answer', handleWebRTCAnswer);
-    socket.on('ice_candidate', handleICECandidate);
-    
-    // Media controls
-    socket.on('audio_state_changed', handleAudioStateChanged);
-    socket.on('video_state_changed', handleVideoStateChanged);
-    socket.on('screen_share_changed', handleScreenShareChanged);
-    socket.on('hand_raised', handleHandRaised);
-    
-    // Chat
-    socket.on('new_message', handleNewMessage);
-}
-
-function initializeMediaControls() {
-    const micToggle = document.getElementById('micToggle');
-    const videoToggle = document.getElementById('videoToggle');
-    
-    micToggle.addEventListener('click', toggleAudio);
-    videoToggle.addEventListener('click', toggleVideo);
-    
-    document.getElementById('shareScreen').addEventListener('click', toggleScreenShare);
-    document.getElementById('raiseHand').addEventListener('click', toggleHandRaise);
-    document.getElementById('leaveMeeting').addEventListener('click', showLeaveModal);
+    try {
+        socket = io();
+        
+        socket.emit('join_meeting', {
+            meeting_id: MEETING_ID,
+            user_id: USER_ID
+        });
+        
+        // Socket event handlers
+        socket.on('connect', () => {
+            console.log('Connected to meeting server');
+        });
+        
+        socket.on('user_joined', handleUserJoined);
+        socket.on('user_left', handleUserLeft);
+        socket.on('current_participants', handleCurrentParticipants);
+        
+        // Media controls
+        socket.on('audio_state_changed', handleAudioStateChanged);
+        socket.on('video_state_changed', handleVideoStateChanged);
+        socket.on('hand_raised', handleHandRaised);
+        
+        // Chat
+        socket.on('new_message', handleNewMessage);
+        
+        console.log('Socket initialized successfully');
+        
+    } catch (error) {
+        console.error('Error initializing socket:', error);
+    }
 }
 
 function initializeUIControls() {
+    // Media controls
+    const micToggle = document.getElementById('micToggle');
+    const videoToggle = document.getElementById('videoToggle');
+    
+    if (micToggle) micToggle.addEventListener('click', toggleAudio);
+    if (videoToggle) videoToggle.addEventListener('click', toggleVideo);
+    
+    // UI controls
+    document.getElementById('shareScreen').addEventListener('click', toggleScreenShare);
+    document.getElementById('raiseHand').addEventListener('click', toggleHandRaise);
+    document.getElementById('leaveMeeting').addEventListener('click', showLeaveModal);
+    
     // Sidebar tabs
     document.querySelectorAll('.sidebar-tab').forEach(tab => {
         tab.addEventListener('click', function() {
@@ -732,55 +572,18 @@ function initializeUIControls() {
     
     // Leave meeting confirmation
     document.getElementById('confirmLeave').addEventListener('click', leaveMeeting);
+    
+    // Set active tab based on button clicks
+    document.getElementById('participantsBtn').addEventListener('click', () => switchTab('participants'));
+    document.getElementById('chatBtn').addEventListener('click', () => switchTab('chat'));
 }
 
-// WebRTC functions
-async function createPeerConnection(userId) {
-    const peerConnection = new RTCPeerConnection(configuration);
-    
-    // Add local stream tracks
-    localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream);
-    });
-    
-    // Handle incoming stream
-    peerConnection.ontrack = (event) => {
-        const stream = event.streams[0];
-        addRemoteVideo(userId, stream);
-    };
-    
-    // Handle ICE candidates
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            socket.emit('ice_candidate', {
-                meeting_id: MEETING_ID,
-                target_user_id: userId,
-                candidate: event.candidate
-            });
-        }
-    };
-    
-    peerConnections[userId] = peerConnection;
-    return peerConnection;
-}
-
-async function createOffer(userId) {
-    const peerConnection = await createPeerConnection(userId);
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    
-    socket.emit('webrtc_offer', {
-        meeting_id: MEETING_ID,
-        target_user_id: userId,
-        offer: offer
-    });
-}
-
-// Media control functions
 function toggleAudio() {
     if (!localStream) return;
     
     const audioTrack = localStream.getAudioTracks()[0];
+    if (!audioTrack) return;
+    
     const enabled = !audioTrack.enabled;
     audioTrack.enabled = enabled;
     
@@ -806,6 +609,8 @@ function toggleVideo() {
     if (!localStream) return;
     
     const videoTrack = localStream.getVideoTracks()[0];
+    if (!videoTrack) return;
+    
     const enabled = !videoTrack.enabled;
     videoTrack.enabled = enabled;
     
@@ -816,11 +621,11 @@ function toggleVideo() {
     if (enabled) {
         videoToggle.innerHTML = '<i class="fas fa-video"></i>';
         localVideoStatus.style.display = 'none';
-        localVideo.style.display = 'block';
+        if (localVideo) localVideo.style.display = 'block';
     } else {
         videoToggle.innerHTML = '<i class="fas fa-video-slash"></i>';
         localVideoStatus.style.display = 'flex';
-        localVideo.style.display = 'none';
+        if (localVideo) localVideo.style.display = 'none';
     }
     
     socket.emit('toggle_video', {
@@ -840,18 +645,12 @@ async function toggleScreenShare() {
                 video: true
             });
             
-            // Replace video track in all peer connections
+            // Replace video track
             const videoTrack = screenStream.getVideoTracks()[0];
-            Object.values(peerConnections).forEach(pc => {
-                const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-                if (sender) {
-                    sender.replaceTrack(videoTrack);
-                }
-            });
-            
-            // Update local video
             const localVideo = document.getElementById('localVideo');
-            localVideo.srcObject = screenStream;
+            if (localVideo) {
+                localVideo.srcObject = screenStream;
+            }
             
             shareBtn.classList.add('active');
             shareBtn.innerHTML = '<i class="fas fa-stop"></i>';
@@ -867,16 +666,10 @@ async function toggleScreenShare() {
                 video: true
             });
             
-            const videoTrack = cameraStream.getVideoTracks()[0];
-            Object.values(peerConnections).forEach(pc => {
-                const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-                if (sender) {
-                    sender.replaceTrack(videoTrack);
-                }
-            });
-            
             const localVideo = document.getElementById('localVideo');
-            localVideo.srcObject = localStream;
+            if (localVideo) {
+                localVideo.srcObject = localStream;
+            }
             
             shareBtn.classList.remove('active');
             shareBtn.innerHTML = '<i class="fas fa-desktop"></i>';
@@ -888,7 +681,14 @@ async function toggleScreenShare() {
 }
 
 function toggleHandRaise() {
-    const raised = !document.getElementById('raiseHand').classList.contains('active');
+    const raiseHandBtn = document.getElementById('raiseHand');
+    const raised = !raiseHandBtn.classList.contains('active');
+    
+    if (raised) {
+        raiseHandBtn.classList.add('active');
+    } else {
+        raiseHandBtn.classList.remove('active');
+    }
     
     socket.emit('raise_hand', {
         meeting_id: MEETING_ID,
@@ -897,7 +697,6 @@ function toggleHandRaise() {
     });
 }
 
-// UI control functions
 function switchTab(tabName) {
     // Update active tab
     document.querySelectorAll('.sidebar-tab').forEach(tab => {
@@ -910,6 +709,12 @@ function switchTab(tabName) {
         content.classList.remove('active');
     });
     document.getElementById(`${tabName}Tab`).classList.add('active');
+    
+    // Open sidebar if closed
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar.classList.contains('open')) {
+        toggleSidebar();
+    }
 }
 
 function toggleSidebar() {
@@ -918,8 +723,8 @@ function toggleSidebar() {
     
     sidebar.classList.toggle('open');
     toggleBtn.innerHTML = sidebar.classList.contains('open') ? 
-        '<i class="fas fa-chevron-right"></i>' : 
-        '<i class="fas fa-chevron-left"></i>';
+        '<i class="fas fa-chevron-right"></i> Panel' : 
+        '<i class="fas fa-chevron-left"></i> Panel';
 }
 
 function startMeetingTimer() {
@@ -932,8 +737,11 @@ function startMeetingTimer() {
         const minutes = Math.floor((diff % 3600000) / 60000);
         const seconds = Math.floor((diff % 60000) / 1000);
         
-        document.getElementById('meetingTimer').textContent = 
-            `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        const timerElement = document.getElementById('meetingTimer');
+        if (timerElement) {
+            timerElement.textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
     }, 1000);
 }
 
@@ -947,78 +755,138 @@ function leaveMeeting() {
         localStream.getTracks().forEach(track => track.stop());
     }
     
-    Object.values(peerConnections).forEach(pc => pc.close());
-    
     if (timerInterval) {
         clearInterval(timerInterval);
     }
     
-    socket.emit('leave_meeting', {
+    if (socket) {
+        socket.emit('leave_meeting', {
+            meeting_id: MEETING_ID,
+            user_id: USER_ID
+        });
+    }
+    
+    window.location.href = "/meetings";
+}
+
+function sendChatMessage() {
+    const chatInput = document.getElementById('chatInput');
+    const message = chatInput.value.trim();
+    
+    if (!message || !socket) return;
+    
+    socket.emit('send_message', {
         meeting_id: MEETING_ID,
-        user_id: USER_ID
+        sender_id: USER_ID,
+        message_text: message,
+        message_type: 'public'
     });
     
-    window.location.href = "{{ url_for('meetings_dashboard') }}";
-}
-
-// Utility functions
-function addRemoteVideo(userId, stream) {
-    const videoGrid = document.getElementById('videoGrid');
-    
-    const videoItem = document.createElement('div');
-    videoItem.className = 'video-item remote-video';
-    videoItem.id = `video-${userId}`;
-    
-    const video = document.createElement('video');
-    video.srcObject = stream;
-    video.autoplay = true;
-    
-    const overlay = document.createElement('div');
-    overlay.className = 'video-overlay';
-    
-    const nameSpan = document.createElement('span');
-    nameSpan.className = 'participant-name';
-    nameSpan.textContent = `User ${userId}`;
-    
-    const statusDiv = document.createElement('div');
-    statusDiv.className = 'participant-status';
-    
-    overlay.appendChild(nameSpan);
-    overlay.appendChild(statusDiv);
-    videoItem.appendChild(video);
-    videoItem.appendChild(overlay);
-    videoGrid.appendChild(videoItem);
-}
-
-function showError(message) {
-    // Implement error notification
-    console.error(message);
+    chatInput.value = '';
 }
 
 // Socket event handlers
 function handleUserJoined(data) {
+    console.log('User joined:', data);
     updateParticipantCount();
-    createOffer(data.user_id);
+    addParticipantToList(data);
 }
 
 function handleUserLeft(data) {
-    const videoElement = document.getElementById(`video-${data.user_id}`);
-    if (videoElement) {
-        videoElement.remove();
-    }
+    console.log('User left:', data);
     updateParticipantCount();
+    removeParticipantFromList(data.user_id);
 }
 
 function handleCurrentParticipants(data) {
-    data.participants.forEach(participant => {
-        if (participant.user_id !== USER_ID) {
-            createOffer(participant.user_id);
-        }
-    });
+    console.log('Current participants:', data);
+    updateParticipantCount();
 }
 
-// Add other WebRTC and socket event handlers...
-// (handleWebRTCOffer, handleWebRTCAnswer, handleICECandidate, etc.)
+function handleAudioStateChanged(data) {
+    console.log('Audio state changed:', data);
+}
 
+function handleVideoStateChanged(data) {
+    console.log('Video state changed:', data);
+}
+
+function handleHandRaised(data) {
+    console.log('Hand raised:', data);
+}
+
+function handleNewMessage(data) {
+    console.log('New message:', data);
+    addChatMessage(data);
+}
+
+// UI update functions
+function updateParticipantCount() {
+    // This would be updated based on actual participant count
+    const countElement = document.getElementById('participantCount');
+    if (countElement) {
+        // For now, just show 1 + random for demo
+        countElement.textContent = 1 + Math.floor(Math.random() * 5);
+    }
+}
+
+function addParticipantToList(data) {
+    const participantsList = document.getElementById('participantsList');
+    if (!participantsList) return;
+    
+    const participantItem = document.createElement('div');
+    participantItem.className = 'participant-item';
+    participantItem.id = `participant-${data.user_id}`;
+    
+    participantItem.innerHTML = `
+        <div class="participant-avatar">
+            ${data.user_name ? data.user_name[0].toUpperCase() : 'U'}
+        </div>
+        <div class="participant-details">
+            <div class="participant-name">${data.user_name || 'User ' + data.user_id}</div>
+            <div class="participant-role">Participant</div>
+        </div>
+    `;
+    
+    participantsList.appendChild(participantItem);
+}
+
+function removeParticipantFromList(userId) {
+    const participantElement = document.getElementById(`participant-${userId}`);
+    if (participantElement) {
+        participantElement.remove();
+    }
+}
+
+function addChatMessage(data) {
+    const chatMessages = document.getElementById('chatMessages');
+    if (!chatMessages) return;
+    
+    const messageElement = document.createElement('div');
+    messageElement.className = `chat-message ${data.sender_id === USER_ID ? 'own' : ''}`;
+    
+    messageElement.innerHTML = `
+        <div class="message-header">
+            <span class="message-sender">${data.sender_name || 'User'}</span>
+            <span class="message-time">${new Date().toLocaleTimeString()}</span>
+        </div>
+        <div class="message-text">${data.message_text}</div>
+    `;
+    
+    chatMessages.appendChild(messageElement);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function showError(message) {
+    // Simple error notification
+    alert(message);
+}
+
+// Initialize when page loads
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeMeeting);
+} else {
+    initializeMeeting();
+}
 </script>
 {% endblock %}
